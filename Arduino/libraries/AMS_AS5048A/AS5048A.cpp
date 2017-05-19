@@ -193,8 +193,8 @@ bool AS5048A::setZero(){
     uint16_t angle;
 
     getAngleCounts(&angle);
-    uint16_t high = (angle & 0x3FC0) >> 6;
-    uint16_t low = angle & 0x001F;
+    uint16_t high = (angle >> 6) & 0x00FF;
+    uint16_t low = angle & 0x003F;
 
     writeRegister(WRITE_ZERO_POS1, high);
     writeRegister(WRITE_ZERO_POS2, low);
@@ -210,7 +210,7 @@ bool AS5048A::setZero(){
         return false;
     }
     
-    if(( (buff[0] & 0x00FF) << 6 ) | (buff[1] & 0x001F) == angle) { // check set value
+    if(( ((buff[0] & 0x00FF) << 6) | (buff[1] & 0x003F) ) == (angle & 0x3FFF)) { // check set value
         return true;
     }
     else{
