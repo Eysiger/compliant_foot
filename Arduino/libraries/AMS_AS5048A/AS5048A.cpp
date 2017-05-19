@@ -234,7 +234,7 @@ int AS5048A::fieldStrength(){
 
 /* check parity and error flag */
 bool AS5048A::check(uint16_t data){
-    if (data & 0x8000) {  // check for error flag
+    if (data & 0x4000) {  // check for error flag
         clearError();     // reset error flag
         return false;
     }
@@ -271,6 +271,9 @@ void AS5048A::writeRegister(uint16_t subAddress, uint16_t data){
 	        SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE1)); // begin the transaction
 	        digitalWriteFast(_csPin,LOW); // select the AS5048A chip
 	        SPI.transfer16(subAddress); // write the register address
+            digitalWriteFast(_csPin,HIGH);
+            delayMicroseconds(1);
+            digitalWriteFast(_csPin,LOW);
 	        SPI.transfer16(data); // write the data
 	        digitalWriteFast(_csPin,HIGH); // deselect the AS5048A chip
 	        SPI.endTransaction(); // end the transaction
@@ -285,6 +288,9 @@ void AS5048A::writeRegister(uint16_t subAddress, uint16_t data){
 	        SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE1)); // begin the transaction
 	        digitalWriteFast(_csPin,LOW); // select the AS5048A chip
 	        SPI.transfer16(subAddress); // write the register address
+            digitalWriteFast(_csPin,HIGH);
+            delayMicroseconds(1);
+            digitalWriteFast(_csPin,LOW);
 	        SPI.transfer16(data); // write the data
 	        digitalWriteFast(_csPin,HIGH); // deselect the AS5048A chip
 	        SPI.endTransaction(); // end the transaction
@@ -293,6 +299,9 @@ void AS5048A::writeRegister(uint16_t subAddress, uint16_t data){
 	        SPI1.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE1)); // begin the transaction
 	        digitalWriteFast(_csPin,LOW); // select the AS5048A chip
 	        SPI1.transfer16(subAddress); // write the register address
+            digitalWriteFast(_csPin,HIGH);
+            delayMicroseconds(1);
+            digitalWriteFast(_csPin,LOW);
 	        SPI1.transfer16(data); // write the data
 	        digitalWriteFast(_csPin,HIGH); // deselect the AS5048A chip
 	        SPI1.endTransaction(); // end the transaction
@@ -301,6 +310,9 @@ void AS5048A::writeRegister(uint16_t subAddress, uint16_t data){
 	    	SPI2.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE1)); // begin the transaction
 	        digitalWriteFast(_csPin,LOW); // select the AS5048A chip
 	        SPI2.transfer16(subAddress); // write the register address
+            digitalWriteFast(_csPin,HIGH);
+            delayMicroseconds(1);
+            digitalWriteFast(_csPin,LOW);
 	        SPI2.transfer16(data); // write the data
 	        digitalWriteFast(_csPin,HIGH); // deselect the AS5048A chip
 	        SPI2.endTransaction(); // end the transaction	
@@ -315,6 +327,9 @@ void AS5048A::writeRegister(uint16_t subAddress, uint16_t data){
 	        SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE1)); // begin the transaction
 	        digitalWriteFast(_csPin,LOW); // select the AS5048A chip
 	        SPI.transfer16(subAddress); // write the register address
+            digitalWriteFast(_csPin,HIGH);
+            delayMicroseconds(1);
+            digitalWriteFast(_csPin,LOW);
 	        SPI.transfer16(data); // write the data
 	        digitalWriteFast(_csPin,HIGH); // deselect the AS5048A chip
 	        SPI.endTransaction(); // end the transaction
@@ -323,6 +338,9 @@ void AS5048A::writeRegister(uint16_t subAddress, uint16_t data){
 	        SPI1.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE1)); // begin the transaction
 	        digitalWriteFast(_csPin,LOW); // select the AS5048A chip
 	        SPI1.transfer16(subAddress); // write the register address
+            digitalWriteFast(_csPin,HIGH);
+            delayMicroseconds(1);
+            digitalWriteFast(_csPin,LOW);
 	        SPI1.transfer16(data); // write the data
 	        digitalWriteFast(_csPin,HIGH); // deselect the AS5048A chip
 	        SPI1.endTransaction(); // end the transaction
@@ -352,6 +370,9 @@ void AS5048A::readRegisters(uint16_t subAddress, uint8_t count, uint16_t* dest){
 	        SPI.transfer16(subAddress | SPI_READ); // specify the starting register address
 
 	        for(uint8_t i = 0; i < count; i++){
+                digitalWriteFast(_csPin,HIGH);
+                delayMicroseconds(1);
+                digitalWriteFast(_csPin,LOW);
 	            dest[i] = SPI.transfer16(0x00); // read the data
 	        }
 
@@ -377,6 +398,9 @@ void AS5048A::readRegisters(uint16_t subAddress, uint8_t count, uint16_t* dest){
 	        SPI.transfer16(subAddress | SPI_READ); // specify the starting register address
 
 	        for(uint8_t i = 0; i < count; i++){
+                digitalWriteFast(_csPin,HIGH);
+                delayMicroseconds(1);
+                digitalWriteFast(_csPin,LOW);
 	            dest[i] = SPI.transfer16(0x00); // read the data
 	        }
 
@@ -396,6 +420,9 @@ void AS5048A::readRegisters(uint16_t subAddress, uint8_t count, uint16_t* dest){
 	        SPI1.transfer16(subAddress | SPI_READ); // specify the starting register address
 
 	        for(uint8_t i = 0; i < count; i++){
+                digitalWriteFast(_csPin,HIGH);
+                delayMicroseconds(1);
+                digitalWriteFast(_csPin,LOW);
 	            dest[i] = SPI1.transfer16(0x00); // read the data
 	        }
 
@@ -415,6 +442,9 @@ void AS5048A::readRegisters(uint16_t subAddress, uint8_t count, uint16_t* dest){
 	        SPI2.transfer16(subAddress | SPI_READ); // specify the starting register address
 
 	        for(uint8_t i = 0; i < count; i++){
+                digitalWriteFast(_csPin,HIGH);
+                delayMicroseconds(1);
+                digitalWriteFast(_csPin,LOW);
 	            dest[i] = SPI.transfer16(0x00); // read the data
 	        }
 
@@ -440,6 +470,9 @@ void AS5048A::readRegisters(uint16_t subAddress, uint8_t count, uint16_t* dest){
 	        SPI.transfer16(subAddress | SPI_READ); // specify the starting register address
 
 	        for(uint8_t i = 0; i < count; i++){
+                digitalWriteFast(_csPin,HIGH);
+                delayMicroseconds(1);
+                digitalWriteFast(_csPin,LOW);
 	            dest[i] = SPI.transfer16(0x00); // read the data
 	        }
 
@@ -459,6 +492,9 @@ void AS5048A::readRegisters(uint16_t subAddress, uint8_t count, uint16_t* dest){
 	        SPI1.transfer16(subAddress | SPI_READ); // specify the starting register address
 
 	        for(uint8_t i = 0; i < count; i++){
+                digitalWriteFast(_csPin,HIGH);
+                delayMicroseconds(1);
+                digitalWriteFast(_csPin,LOW);
 	            dest[i] = SPI1.transfer16(0x00); // read the data
 	        }
 
