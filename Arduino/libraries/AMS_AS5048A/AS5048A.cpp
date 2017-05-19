@@ -190,33 +190,48 @@ bool AS5048A::getAngle(float* angle){
 
 /* set actual encoder position as actual zero position */
 bool AS5048A::setZero(){
-    uint16_t angle;
-
-    getAngleCounts(&angle);
-    uint16_t high = ((angle & 0x3FC0) >> 6) & 0x00FF;
-    uint16_t low = angle & 0x003F;
-
-    addParity(&high);
-    addParity(&low);
-
-    writeRegister(WRITE_ZERO_POS1, high);
-    writeRegister(WRITE_ZERO_POS2, low);
+    writeRegister(WRITE_ZERO_POS1, 0x0000);     //set zero position back
+    writeRegister(WRITE_ZERO_POS2, 0x0000);
 
     uint16_t buff[2];
     readRegisters(READ_ZERO_POS1, 1, &buff[0]);
     readRegisters(READ_ZERO_POS2, 1, &buff[1]);
 
-    if (!check(buff[0])){  // check parity and error flag
+    if (!check(buff[0]) || !check(buff[1])){  // check parity and error flag
         return false;
     }
-    if (!check(buff[1])){  // check parity and error flag
+        
+    if(( ((buff[0] & 0x00FF) << 6) | (buff[1] & 0x003F) ) != 0x0000) { // check set value
         return false;
     }
-    
-    if(( ((buff[0] & 0x00FF) << 6) | (buff[1] & 0x003F) ) == (angle & 0x3FFF)) { // check set value
-        return true;
+
+    uint16_t angle;
+    if (getAngleCounts(&angle))
+    {
+        uint16_t high = ((angle & 0x3FC0) >> 6) & 0x00FF;
+        uint16_t low = angle & 0x003F;
+
+        addParity(&high);
+        addParity(&low);
+
+        writeRegister(WRITE_ZERO_POS1, high);
+        writeRegister(WRITE_ZERO_POS2, low);
+
+        readRegisters(READ_ZERO_POS1, 1, &buff[0]);
+        readRegisters(READ_ZERO_POS2, 1, &buff[1]);
+
+        if (!check(buff[0]) || !check(buff[1])){  // check parity and error flag
+            return false;
+        }
+        
+        if(( ((buff[0] & 0x00FF) << 6) | (buff[1] & 0x003F) ) == (angle & 0x3FFF)) { // check set value
+            return true;
+        }
+        else{
+            return false;
+        }
     }
-    else{
+    else {
         return false;
     }
 }
