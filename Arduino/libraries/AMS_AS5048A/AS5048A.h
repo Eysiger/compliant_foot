@@ -87,6 +87,7 @@ class AS5048A{
         const uint16_t NOP = 0x0000;
 
         bool check(uint16_t data);
+        void addParity(uint16_t* data);
         void clearError();
         void writeRegister(uint16_t subAddress, uint16_t data);
         void readRegisters(uint16_t subAddress, uint8_t count, uint16_t* dest);

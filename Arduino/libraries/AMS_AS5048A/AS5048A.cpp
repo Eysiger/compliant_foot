@@ -185,7 +185,7 @@ bool AS5048A::getAngle(float* angle){
 
     *angle = ((float) count) * _angleScale; // typecast and scale to values
 
-    return check; // return if successfull (0)
+    return check; // return if successfull (1)
 }
 
 /* set actual encoder position as actual zero position */
@@ -193,8 +193,11 @@ bool AS5048A::setZero(){
     uint16_t angle;
 
     getAngleCounts(&angle);
-    uint16_t high = (angle >> 6) & 0x00FF;
+    uint16_t high = ((angle & 0x3FC0) >> 6) & 0x00FF;
     uint16_t low = angle & 0x003F;
+
+    addParity(&high);
+    addParity(&low);
 
     writeRegister(WRITE_ZERO_POS1, high);
     writeRegister(WRITE_ZERO_POS2, low);
@@ -239,10 +242,10 @@ bool AS5048A::check(uint16_t data){
         return false;
     }
 
-    uint16_t count = 0;
+    int count = 0;
     for (int i=0; i<16; i++){       //counts number of set bits
         count += (data & 0x0001);
-        data >> 1;
+        data = data >> 1;
     }
 
     if (count % 2){                 // checks for bit unparity
@@ -250,6 +253,25 @@ bool AS5048A::check(uint16_t data){
     }
 
     return true;
+}
+
+/* adds parity bit to data where needed */
+void AS5048A::addParity(uint16_t* data){
+    uint16_t buff = *data;
+    int count = 0;
+    for (int i=0; i<16; i++){       //counts number of set bits
+        count += (buff & 0x0001);
+        buff = buff >> 1;
+    }
+
+    if (count % 2){                 // checks for bit unparity
+        if (*data & 0x8000){
+            *data = *data & 0x7FFF; // removes parity bit
+        } 
+        else {
+            *data = *data | 0x8000; // adds parity bit
+        }
+    }
 }
 
 /* clears all errors */
