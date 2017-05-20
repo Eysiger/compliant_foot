@@ -68,8 +68,8 @@ class AS5048A{
 
         // SPI constants
         const uint16_t SPI_READ = 0x4000;
-        const uint32_t SPI_LS_CLOCK = 100000; // 1 MHz
-        const uint32_t SPI_HS_CLOCK = 1000000; // 10 MHz
+        const uint32_t SPI_LS_CLOCK = 1000000; // 1 MHz
+        const uint32_t SPI_HS_CLOCK = 10000000; // 10 MHz
 
         // constants
         const float _d2r = 3.14159265359f/180.0f;

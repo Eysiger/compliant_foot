@@ -39,12 +39,15 @@ ICM20608G IMUSole(10);
 ICM20608G IMUShank(9);
 AS5048A ENCODER(15);
 
-float ax1, ay1, az1, gx1, gy1, gz1, t1;
-float ax2, ay2, az2, gx2, gy2, gz2, t2;
-float angle;
+const int number = 1000;
+float ax1[number], ay1[number], az1[number], gx1[number], gy1[number], gz1[number], t1[number];
+float ax2[number], ay2[number], az2[number], gx2[number], gy2[number], gz2[number], t2[number];
+float angle[number];
 int beginStatus1;
 int beginStatus2;
 int beginStatus3;
+int i = 0;
+unsigned long stime;
 
 void setup() {
   // serial to display data
@@ -63,11 +66,18 @@ void setup() {
   // GYRO 250DPS 500DPS 1000DPS 2000DPS
   beginStatus1 = IMUSole.begin(ACCEL_RANGE_4G,GYRO_RANGE_250DPS);
   beginStatus2 = IMUShank.begin(ACCEL_RANGE_4G,GYRO_RANGE_250DPS);
-  //beginStatus3 = ENCODER.begin();
-  
+  beginStatus3 = ENCODER.begin();
+
+  //define zero position of encoder
+  int state = ENCODER.setZero();
+  Serial.print("Encoder set to zero; successfully (1) or not (0): ");
+  Serial.println(state);
+
+  stime = micros();
 }
 
 void loop() {
+  
   if(beginStatus1 < 0) {
     delay(1000);
     Serial.println("IMUSole initialization unsuccessful");
@@ -76,11 +86,8 @@ void loop() {
   }
   else{
     /* get the individual data sources */
-    /* This approach is only recommended if you only
-     *  would like the specified data source (i.e. only
-     *  want accel data) since multiple data sources
-     *  would have a time skew between them.
-     */
+    /* This approach is only recommended if you only would like the specified data source (i.e. only
+     * want accel data) since multiple data sources would have a time skew between them. */
     // get the accelerometer data (m/s/s)
 //    IMUSole.getAccel(&ax1, &ay1, &az1);
 //  
@@ -88,24 +95,18 @@ void loop() {
 //    IMUSole.getGyro(&gx1, &gy1, &gz1);
   
     /* get multiple data sources */
-    /* In this approach we get data from multiple data
-     *  sources (i.e. both gyro and accel). This is 
-     *  the recommended approach since there is no time
-     *  skew between sources - they are all synced.
-     *  Demonstrated are:
-     *  1. getMotion6: accel + gyro
-     *  2. getMotion7: accel + gyro + temp
-     */
-  
+    /* In this approach we get data from multiple data sources (i.e. both gyro and accel). This is 
+     *  the recommended approach since there is no time skew between sources - they are all synced. */
+     
      /* getMotion6 */
     // get both the accel (m/s/s) and gyro (rad/s) data
-    IMUSole.getMotion6(&ax1, &ay1, &az1, &gx1, &gy1, &gz1);
-  
+    IMUSole.getMotion6(&ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]);
+    
     // get the temperature data (C)
-    IMUSole.getTemp(&t1);
+    //IMUSole.getTemp(&t1);
   
     // print the data
-    printData1();
+    //printData1();
 
     /* getMotion7 */
 //    // get the accel (m/s/s), gyro (rad/s), and temperature (C) data
@@ -119,11 +120,8 @@ void loop() {
   }
   else{
     /* get the individual data sources */
-    /* This approach is only recommended if you only
-     *  would like the specified data source (i.e. only
-     *  want accel data) since multiple data sources
-     *  would have a time skew between them.
-     */
+    /* This approach is only recommended if you only would like the specified data source (i.e. only
+     *  want accel data) since multiple data sources would have a time skew between them. */
     // get the accelerometer data (m/s/s)
 //    IMUShank.getAccel(&ax2, &ay2, &az2);
 //  
@@ -131,83 +129,96 @@ void loop() {
 //    IMUShank.getGyro(&gx2, &gy2, &gz2);
   
     /* get multiple data sources */
-    /* In this approach we get data from multiple data
-     *  sources (i.e. both gyro and accel). This is 
-     *  the recommended approach since there is no time
-     *  skew between sources - they are all synced.
-     *  Demonstrated are:
-     *  1. getMotion6: accel + gyro
-     *  2. getMotion7: accel + gyro + temp
-     */
+    /* In this approach we get data from multiple data sources (i.e. both gyro and accel). This is 
+     *  the recommended approach since there is no time skew between sources - they are all synced. */
   
      /* getMotion6 */
     // get both the accel (m/s/s) and gyro (rad/s) data
-    IMUShank.getMotion6(&ax2, &ay2, &az2, &gx2, &gy2, &gz2);
+    IMUShank.getMotion6(&ax2[i], &ay2[i], &az2[i], &gx2[i], &gy2[i], &gz2[i]);
   
     // get the temperature data (C)
-    IMUShank.getTemp(&t2);
+    //IMUShank.getTemp(&t2);
   
     // print the data
-    printData2();
+    //printData2();
 
     /* getMotion7 */
 //    // get the accel (m/s/s), gyro (rad/s), and temperature (C) data
 //    IMUShank.getMotion7(&ax2, &ay2, &az2, &gx2, &gy2, &gz2, &t2);
   }
-//  if(beginStatus3 < 0) {
-//    delay(1000);
-//    Serial.println("IENCODER initialization unsuccessful");
-//    Serial.println("Check ENCODER wiring or try cycling power");
-//    delay(10000);
-//  }
-//  else{
-//    ENCODER.getAngle(&angle);
-//    printData3();
-//  }
-}
-
-void printData1(){
-
-  // print the data
-  Serial.print(ax1,6);
-  Serial.print("\t");
-  Serial.print(ay1,6);
-  Serial.print("\t");
-  Serial.print(az1,6);
-  Serial.print("\t");
-
-  Serial.print(gx1,6);
-  Serial.print("\t");
-  Serial.print(gy1,6);
-  Serial.print("\t");
-  Serial.print(gz1,6);
-  Serial.print("\t");
-
-  Serial.print(t1,6);
-  Serial.print("\t");
-}
-
-void printData2(){
+  if(beginStatus3 < 0) {
+    delay(1000);
+    Serial.println("IENCODER initialization unsuccessful");
+    Serial.println("Check ENCODER wiring or try cycling power");
+    delay(10000);
+  }
+  else{
+    int state = ENCODER.getAngle(&angle[i]);
+    //Serial.println(state);
+    //printData3();
+  }
   
-  // print the data
-  Serial.print(ax2,6);
-  Serial.print("\t");
-  Serial.print(ay2,6);
-  Serial.print("\t");
-  Serial.print(az2,6);
-  Serial.print("\t");
+  i++;
+  
+  if (i == number){
+    stime = micros() - stime;
+    float rate = float(number)/stime*1000000;
+    Serial.print("rate [Hz]: ");
+    Serial.println(rate);
 
-  Serial.print(gx2,6);
-  Serial.print("\t");
-  Serial.print(gy2,6);
-  Serial.print("\t");
-  Serial.print(gz2,6);
-  Serial.print("\t");
 
-  Serial.println(t2,6);
+//    double sum = 0;
+//    double sum2 = 0;
+//    sum += values[j];
+
+    delay(5000);
+    stime = micros();
+    i = 0;
+  }
 }
 
-void printData3(){
-  Serial.println(angle,2);
-}
+//void printData1(){
+//
+//  // print the data
+//  Serial.print(ax1,6);
+//  Serial.print("\t");
+//  Serial.print(ay1,6);
+//  Serial.print("\t");
+//  Serial.print(az1,6);
+//  Serial.print("\t");
+//
+//  Serial.print(gx1,6);
+//  Serial.print("\t");
+//  Serial.print(gy1,6);
+//  Serial.print("\t");
+//  Serial.print(gz1,6);
+//  Serial.print("\t");
+//
+//  Serial.print(t1,6);
+//  Serial.print("\t");
+//}
+//
+//void printData2(){
+//  
+//  // print the data
+//  Serial.print(ax2,6);
+//  Serial.print("\t");
+//  Serial.print(ay2,6);
+//  Serial.print("\t");
+//  Serial.print(az2,6);
+//  Serial.print("\t");
+//
+//  Serial.print(gx2,6);
+//  Serial.print("\t");
+//  Serial.print(gy2,6);
+//  Serial.print("\t");
+//  Serial.print(gz2,6);
+//  Serial.print("\t");
+//
+//  Serial.println(t2,6);
+//}
+//
+//void printData3(){
+//  Serial.println(angle,2);
+//}
 
