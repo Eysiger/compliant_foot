@@ -288,9 +288,9 @@ int ICM20608G::begin(icm20608G_accel_range accelRange, icm20608G_gyro_range gyro
         return -1;
     }
 
-    // if( !writeRegister(USER_CTRL,I2C_DIS) ){
-    //     return -1;
-    // }
+    if( !writeRegister(USER_CTRL,I2C_DIS) ){
+        return -1;
+    }
 
     
     // check the WHO AM I byte, expected value is 0xAF (decimal 175)

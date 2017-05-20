@@ -134,8 +134,8 @@ class ICM20608G{
 
         // SPI constants
         const uint8_t SPI_READ = 0x80;
-        const uint32_t SPI_LS_CLOCK = 1000000; // 1 MHz
-        const uint32_t SPI_HS_CLOCK = 8000000; // 8 MHz
+        const uint32_t SPI_LS_CLOCK = 1000000; // 1 MHz, max. 1 MHz
+        const uint32_t SPI_HS_CLOCK = 8000000; // 8 MHz, max. 8 MHz
 
         // i2c bus frequency
         const uint32_t _i2cRate = 400000;

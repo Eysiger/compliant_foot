@@ -433,7 +433,7 @@ void AS5048A::readRegisters(uint16_t subAddress, uint8_t count, uint16_t* dest){
 	        digitalWriteFast(_csPin,LOW); // select the AS5048A chip
 
 	        SPI.transfer16(subAddress | SPI_READ); // specify the starting register address
-
+            
 	        for(uint8_t i = 0; i < count; i++){
                 digitalWriteFast(_csPin,HIGH);
                 delayMicroseconds(1);
