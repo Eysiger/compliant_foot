@@ -42,6 +42,8 @@ AS5048A ENCODER(15);
 const int number = 1;
 float ax1[number], ay1[number], az1[number], gx1[number], gy1[number], gz1[number], t1[number];
 float ax2[number], ay2[number], az2[number], gx2[number], gy2[number], gz2[number], t2[number];
+float q01[number], q11[number], q21[number], q31[number];
+float q02[number], q12[number], q22[number], q32[number];
 float angle[number];
 int beginStatus1;
 int beginStatus2;
@@ -80,7 +82,6 @@ void setup() {
 }
 
 void loop() {
-  
   if(beginStatus1 < 0) {
     delay(1000);
     Serial.println("IMUSole initialization unsuccessful");
@@ -100,15 +101,41 @@ void loop() {
     /* get multiple data sources */
     /* In this approach we get data from multiple data sources (i.e. both gyro and accel). This is 
      *  the recommended approach since there is no time skew between sources - they are all synced. */
+
+  
+    // get the temperature data (C)
+    IMUSole.getTemp(&t1[i]);                    // workaround to read out temperature first since first readout after AMS AS5048A does not work
      
      /* getMotion6 */
     // get both the accel (m/s/s) and gyro (rad/s) data
-    IMUSole.getMotion6(&ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]); // workaround since first readout after AMS AS5048A does not work
-    IMUSole.getMotion6(&ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]);
+    IMUSole.getMotion6(&ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]); 
 
-    // get the temperature data (C)
-    IMUSole.getTemp(&t1[i]);
-  
+//     /* getQuaternion */
+//    float q[4];
+//    IMUSole.getQ(q);
+//    q01[i] = q[0];
+//    q11[i] = q[1];
+//    q21[i] = q[2];
+//    q31[i] = q[3];
+//
+//    Serial.print(q[0]);
+//    Serial.print("\t");
+//    Serial.print(q[1]);
+//    Serial.print("\t");
+//    Serial.print(q[2]);
+//    Serial.print("\t");
+//    Serial.print(q[3]);
+
+     /* getEuler */
+    float angles[3];
+    IMUSole.getEuler(angles);
+    
+    Serial.print(angles[0]);
+    Serial.print("\t");
+    Serial.print(angles[1]);
+    Serial.print("\t");
+    Serial.println(angles[2]);
+      
     // print the data
     //printData1();
 
@@ -141,7 +168,7 @@ void loop() {
     IMUShank.getMotion6(&ax2[i], &ay2[i], &az2[i], &gx2[i], &gy2[i], &gz2[i]);
   
     // get the temperature data (C)
-    IMUShank.getTemp(&t2[i]);
+    //IMUShank.getTemp(&t2[i]);
   
     // print the data
     //printData2();
@@ -168,42 +195,43 @@ void loop() {
     
     unsigned long USBtime = micros();
     for (int j=0; j<number; j++) {
-      Serial.print(ax1[j],6);
+      int commas = 2;
+      Serial.print(ax1[j],commas);
       Serial.print("\t");
-      Serial.print(ay1[j],6);
+      Serial.print(ay1[j],commas);
       Serial.print("\t");
-      Serial.print(az1[j],6);
+      Serial.print(az1[j],commas);
       Serial.print("\t");
-      Serial.print(gx1[j],6);
+      Serial.print(gx1[j],commas);
       Serial.print("\t");
-      Serial.print(gy1[j],6);
+      Serial.print(gy1[j],commas);
       Serial.print("\t");
-      Serial.print(gz1[j],6);
-      Serial.print("\t");
-
-      Serial.print(ax2[j],6);
-      Serial.print("\t");
-      Serial.print(ay2[j],6);
-      Serial.print("\t");
-      Serial.print(az2[j],6);
-      Serial.print("\t");
-      Serial.print(gx2[j],6);
-      Serial.print("\t");
-      Serial.print(gy2[j],6);
-      Serial.print("\t");
-      Serial.print(gz2[j],6);
+      Serial.print(gz1[j],commas);
       Serial.print("\t");
 
-      Serial.println(angle[j],6);
+      Serial.print(ax2[j],commas);
+      Serial.print("\t");
+      Serial.print(ay2[j],commas);
+      Serial.print("\t");
+      Serial.print(az2[j],commas);
+      Serial.print("\t");
+      Serial.print(gx2[j],commas);
+      Serial.print("\t");
+      Serial.print(gy2[j],commas);
+      Serial.print("\t");
+      Serial.print(gz2[j],commas);
+      Serial.print("\t");
+
+      Serial.println(angle[j],commas);
     }
     USBtime = micros() - USBtime;
     
-    float rate = float(number)/stime*1000000;
-    Serial.print("rate [Hz]: ");
-    Serial.println(rate);
-    float USBrate = float(number)/USBtime*1000000;
-    Serial.print("USB rate [Hz]: ");
-    Serial.println(USBrate);
+//    float rate = float(number)/stime*1000000;
+//    Serial.print("rate [Hz]: ");
+//    Serial.println(rate);
+//    float USBrate = float(number)/USBtime*1000000;
+//    Serial.print("USB rate [Hz]: ");
+//    Serial.println(USBrate);
 
 //    double sum = 0;
 //    double sum2 = 0;

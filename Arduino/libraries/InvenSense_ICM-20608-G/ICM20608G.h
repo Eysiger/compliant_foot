@@ -133,6 +133,10 @@ class ICM20608G{
         void getMotion6Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz);
         void getMotion7Counts(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz, int16_t* t);
 
+        void getQ(float* q);
+        void getEuler(float* angles);
+        void getYawPitchRoll(float* ypr);
+        void getAngles(float* angles);
     private:
         uint8_t _address;
         uint8_t _bus;
@@ -229,6 +233,16 @@ class ICM20608G{
         bool writeRegister(uint8_t subAddress, uint8_t data);
         void readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest);
         uint8_t whoAmI();
+
+        void AHRSupdate(float gx, float gy, float gz, float ax, float ay, float az);
+        volatile float twoKp = (2.0f * 0.5f); // 2 * proportional gain;      // 2 * proportional gain (Kp)
+        volatile float twoKi = (2.0f * 0.1f); // 2 * integral gain;      // 2 * integral gain (Ki)
+        volatile float q0, q1, q2, q3; // quaternion of sensor frame relative to auxiliary frame
+        volatile float integralFBx,  integralFBy, integralFBz;
+        unsigned long lastUpdate, now; // sample period expressed in milliseconds
+        float sampleFreq; // half the sample period expressed in seconds
 };
+
+float invSqrt(float number);
 
 #endif
