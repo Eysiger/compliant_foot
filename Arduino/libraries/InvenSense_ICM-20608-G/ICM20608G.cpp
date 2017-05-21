@@ -1077,7 +1077,7 @@ void ICM20608G::getQ(float * q) {
   // gyro values are expressed in deg/sec, the * M_PI/180 will convert it to radians/sec
   // AHRSupdate(val[3] * M_PI/180, val[4] * M_PI/180, val[5] * M_PI/180, val[0], val[1], val[2], val[6], val[7], val[8]);
   // use the call below when using a 6DOF IMU
-  AHRSupdate(val[3] * M_PI/180, val[4] * M_PI/180, val[5] * M_PI/180, val[0], val[1], val[2]);
+  AHRSupdate(val[3], val[4], val[5], val[0], val[1], val[2]);
   q[0] = q0;
   q[1] = q1;
   q[2] = q2;

@@ -150,7 +150,7 @@ class ICM20608G{
         float _accelScale;
         float _gyroScale;
         const float _tempScale = 326.8f;
-        const float _tempOffset = 25.0f;
+        const float _tempOffset = 0.0f;
 
         // SPI constants
         const uint8_t SPI_READ = 0x80;

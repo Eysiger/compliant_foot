@@ -29,6 +29,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 #include "ICM20608G.h"
 #include "AS5048A.h"
+#include "CommunicationUtils.h"
 
 const int PinA = 9;
 const int PinB = 10;
@@ -110,14 +111,14 @@ void loop() {
     // get both the accel (m/s/s) and gyro (rad/s) data
     IMUSole.getMotion6(&ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]); 
 
-//     /* getQuaternion */
-//    float q[4];
-//    IMUSole.getQ(q);
-//    q01[i] = q[0];
-//    q11[i] = q[1];
-//    q21[i] = q[2];
-//    q31[i] = q[3];
-//
+     /* getQuaternion */
+    float q[4];
+    IMUSole.getQ(q);
+    q01[i] = q[0];
+    q11[i] = q[1];
+    q21[i] = q[2];
+    q31[i] = q[3];
+
 //    Serial.print(q[0]);
 //    Serial.print("\t");
 //    Serial.print(q[1]);
@@ -125,16 +126,20 @@ void loop() {
 //    Serial.print(q[2]);
 //    Serial.print("\t");
 //    Serial.print(q[3]);
+    serialPrintFloatArr(q, 4);
+    Serial.println(""); //line break
 
-     /* getEuler */
-    float angles[3];
-    IMUSole.getEuler(angles);
-    
-    Serial.print(angles[0]);
-    Serial.print("\t");
-    Serial.print(angles[1]);
-    Serial.print("\t");
-    Serial.println(angles[2]);
+    delay(60);
+
+//     /* getEuler */
+//    float angles[3];
+//    IMUSole.getEuler(angles);
+//    
+//    Serial.print(angles[0]);
+//    Serial.print("\t");
+//    Serial.print(angles[1]);
+//    Serial.print("\t");
+//    Serial.println(angles[2]);
       
     // print the data
     //printData1();
@@ -196,33 +201,33 @@ void loop() {
     unsigned long USBtime = micros();
     for (int j=0; j<number; j++) {
       int commas = 2;
-      Serial.print(ax1[j],commas);
-      Serial.print("\t");
-      Serial.print(ay1[j],commas);
-      Serial.print("\t");
-      Serial.print(az1[j],commas);
-      Serial.print("\t");
-      Serial.print(gx1[j],commas);
-      Serial.print("\t");
-      Serial.print(gy1[j],commas);
-      Serial.print("\t");
-      Serial.print(gz1[j],commas);
-      Serial.print("\t");
-
-      Serial.print(ax2[j],commas);
-      Serial.print("\t");
-      Serial.print(ay2[j],commas);
-      Serial.print("\t");
-      Serial.print(az2[j],commas);
-      Serial.print("\t");
-      Serial.print(gx2[j],commas);
-      Serial.print("\t");
-      Serial.print(gy2[j],commas);
-      Serial.print("\t");
-      Serial.print(gz2[j],commas);
-      Serial.print("\t");
-
-      Serial.println(angle[j],commas);
+//      Serial.print(ax1[j],commas);
+//      Serial.print("\t");
+//      Serial.print(ay1[j],commas);
+//      Serial.print("\t");
+//      Serial.print(az1[j],commas);
+//      Serial.print("\t");
+//      Serial.print(gx1[j],commas);
+//      Serial.print("\t");
+//      Serial.print(gy1[j],commas);
+//      Serial.print("\t");
+//      Serial.print(gz1[j],commas);
+//      Serial.print("\t");
+//
+//      Serial.print(ax2[j],commas);
+//      Serial.print("\t");
+//      Serial.print(ay2[j],commas);
+//      Serial.print("\t");
+//      Serial.print(az2[j],commas);
+//      Serial.print("\t");
+//      Serial.print(gx2[j],commas);
+//      Serial.print("\t");
+//      Serial.print(gy2[j],commas);
+//      Serial.print("\t");
+//      Serial.print(gz2[j],commas);
+//      Serial.print("\t");
+//
+//      Serial.println(angle[j],commas);
     }
     USBtime = micros() - USBtime;
     
