@@ -85,14 +85,30 @@ enum icm20608G_accel_range
     ACCEL_RANGE_16G    
 };
 
-enum icm20608G_dlpf_bandwidth
+enum icm20608G_gyro_dlpf_bandwidth
 {
-    DLPF_BANDWIDTH_176HZ,
-    DLPF_BANDWIDTH_92HZ,
-    DLPF_BANDWIDTH_41HZ,
-    DLPF_BANDWIDTH_20HZ,
-    DLPF_BANDWIDTH_10HZ,
-    DLPF_BANDWIDTH_5HZ
+    GYRO_BYPASS_DLPF_BANDWIDTH_8173HZ,
+    GYRO_BYPASS_DLPF_BANDWIDTH_3281HZ,
+    GYRO_DLPF_BANDWIDTH_3281HZ,
+    GYRO_DLPF_BANDWIDTH_250HZ,
+    GYRO_DLPF_BANDWIDTH_176HZ,
+    GYRO_DLPF_BANDWIDTH_92HZ,
+    GYRO_DLPF_BANDWIDTH_41HZ,
+    GYRO_DLPF_BANDWIDTH_20HZ,
+    GYRO_DLPF_BANDWIDTH_10HZ,
+    GYRO_DLPF_BANDWIDTH_5HZ
+};
+
+enum icm20608G_accel_dlpf_bandwidth
+{
+    ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ,
+    ACCEL_DLPF_BANDWIDTH_420HZ,
+    ACCEL_DLPF_BANDWIDTH_218HZ,
+    ACCEL_DLPF_BANDWIDTH_99HZ,
+    ACCEL_DLPF_BANDWIDTH_45HZ,
+    ACCEL_DLPF_BANDWIDTH_21HZ,
+    ACCEL_DLPF_BANDWIDTH_10HZ,
+    ACCEL_DLPF_BANDWIDTH_5HZ
 };
 
 class ICM20608G{
@@ -103,7 +119,7 @@ class ICM20608G{
         ICM20608G(uint8_t csPin);
         ICM20608G(uint8_t csPin, spi_mosi_pin pin);
         int begin(icm20608G_accel_range accelRange, icm20608G_gyro_range gyroRange);
-        int setFilt(icm20608G_dlpf_bandwidth bandwidth, uint8_t SRD);
+        int setFilt(icm20608G_gyro_dlpf_bandwidth gyro_bandwidth, icm20608G_accel_dlpf_bandwidth accel_bandwidth, uint8_t SRD);
         int enableInt(bool enable);
         void getAccel(float* ax, float* ay, float* az);
         void getGyro(float* gx, float* gy, float* gz);
@@ -160,22 +176,29 @@ class ICM20608G{
         const uint8_t GYRO_FS_SEL_500DPS = 0x08;
         const uint8_t GYRO_FS_SEL_1000DPS = 0x10;
         const uint8_t GYRO_FS_SEL_2000DPS = 0x18;
+        const uint8_t GYRO_USE_DLPF = 0x00;
+        const uint8_t GYRO_BYPASS_DLPF_8173 = 0x01;
+        const uint8_t GYRO_BYPASS_DLPF_3281 = 0x02;
 
         const uint8_t ACCEL_CONFIG2 = 0x1D;
-        const uint8_t ACCEL_DLPF_176 = 0x01;
-        const uint8_t ACCEL_DLPF_92 = 0x02;
-        const uint8_t ACCEL_DLPF_41 = 0x03;
-        const uint8_t ACCEL_DLPF_20 = 0x04;
+        const uint8_t ACCEL_BYPASS_DLPF_1046 = 0x08;
+        const uint8_t ACCEL_DLPF_218 = 0x01;
+        const uint8_t ACCEL_DLPF_99 = 0x02;
+        const uint8_t ACCEL_DLPF_45 = 0x03;
+        const uint8_t ACCEL_DLPF_21 = 0x04;
         const uint8_t ACCEL_DLPF_10 = 0x05;
         const uint8_t ACCEL_DLPF_5 = 0x06;
+        const uint8_t ACCEL_DLPF_420 = 0x07;
 
         const uint8_t CONFIG = 0x1A;
+        const uint8_t GYRO_DLPF_250 = 0x00;
         const uint8_t GYRO_DLPF_176 = 0x01;
         const uint8_t GYRO_DLPF_92 = 0x02;
         const uint8_t GYRO_DLPF_41 = 0x03;
         const uint8_t GYRO_DLPF_20 = 0x04;
         const uint8_t GYRO_DLPF_10 = 0x05;
         const uint8_t GYRO_DLPF_5 = 0x06;
+        const uint8_t GYRO_DLPF_3281 = 0x07;
 
         const uint8_t SMPDIV = 0x19;
 

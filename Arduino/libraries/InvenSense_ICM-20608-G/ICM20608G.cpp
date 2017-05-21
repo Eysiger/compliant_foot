@@ -384,62 +384,144 @@ int ICM20608G::begin(icm20608G_accel_range accelRange, icm20608G_gyro_range gyro
 
 
 /* sets the DLPF and interrupt settings */
-int ICM20608G::setFilt(icm20608G_dlpf_bandwidth bandwidth, uint8_t SRD){
+int ICM20608G::setFilt(icm20608G_gyro_dlpf_bandwidth gyro_bandwidth, icm20608G_accel_dlpf_bandwidth accel_bandwidth, uint8_t SRD){
     uint8_t data[7];
+    uint8_t GYRO_CONFIG_TEMP;
+    readRegisters(GYRO_CONFIG, 1, &GYRO_CONFIG_TEMP);
 
-    switch(bandwidth) {
-        case DLPF_BANDWIDTH_176HZ:
-            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_176) ){ // setting accel bandwidth to 184Hz
+    switch(gyro_bandwidth) {
+        case GYRO_BYPASS_DLPF_BANDWIDTH_8173HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_BYPASS_DLPF_8173) ){ // setting gyro bandwidth to 184Hz
                 return -1;
-            } 
+            }
+            break;
+
+        case GYRO_BYPASS_DLPF_BANDWIDTH_3281HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_BYPASS_DLPF_3281) ){ // setting gyro bandwidth to 184Hz
+                return -1;
+            }
+            break;
+
+        case GYRO_DLPF_BANDWIDTH_3281HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_USE_DLPF) ){ // setting gyro bandwidth to 184Hz
+                return -1;
+            }
+            if( !writeRegister(CONFIG,GYRO_DLPF_3281) ){ // setting gyro bandwidth to 184Hz
+                return -1;
+            }
+            break;
+
+        case GYRO_DLPF_BANDWIDTH_250HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_USE_DLPF) ){ // setting gyro bandwidth to 184Hz
+                return -1;
+            }
+            if( !writeRegister(CONFIG,GYRO_DLPF_250) ){ // setting gyro bandwidth to 184Hz
+                return -1;
+            }
+            break;
+
+        case GYRO_DLPF_BANDWIDTH_176HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_USE_DLPF) ){ // setting gyro bandwidth to 184Hz
+                return -1;
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_176) ){ // setting gyro bandwidth to 184Hz
                 return -1;
             }
             break;
 
-        case DLPF_BANDWIDTH_92HZ:
-            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_92) ){ // setting accel bandwidth to 92Hz
+        case GYRO_DLPF_BANDWIDTH_92HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_USE_DLPF) ){ // setting gyro bandwidth to 184Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_92) ){ // setting gyro bandwidth to 92Hz
                 return -1;
             }
             break; 
 
-        case DLPF_BANDWIDTH_41HZ:
-            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_41) ){ // setting accel bandwidth to 41Hz
+        case GYRO_DLPF_BANDWIDTH_41HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_USE_DLPF) ){ // setting gyro bandwidth to 184Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_41) ){ // setting gyro bandwidth to 41Hz
                 return -1;
             } 
             break;
 
-        case DLPF_BANDWIDTH_20HZ:
-            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_20) ){ // setting accel bandwidth to 20Hz
+        case GYRO_DLPF_BANDWIDTH_20HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_USE_DLPF) ){ // setting gyro bandwidth to 184Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_20) ){ // setting gyro bandwidth to 20Hz
                 return -1;
             }
             break;
 
-        case DLPF_BANDWIDTH_10HZ:
-            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_10) ){ // setting accel bandwidth to 10Hz
+        case GYRO_DLPF_BANDWIDTH_10HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_USE_DLPF) ){ // setting gyro bandwidth to 184Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_10) ){ // setting gyro bandwidth to 10Hz
                 return -1;
             }
             break;
 
-        case DLPF_BANDWIDTH_5HZ:
-            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_5) ){ // setting accel bandwidth to 5Hz
+        case GYRO_DLPF_BANDWIDTH_5HZ:
+            if( !writeRegister(GYRO_CONFIG, (GYRO_CONFIG_TEMP & 0xFC) | GYRO_USE_DLPF) ){ // setting gyro bandwidth to 184Hz
                 return -1;
-            } 
+            }
             if( !writeRegister(CONFIG,GYRO_DLPF_5) ){ // setting gyro bandwidth to 5Hz
                 return -1;
             }
+            break; 
+    }
+
+    switch(accel_bandwidth) {
+        case ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ:
+            if( !writeRegister(ACCEL_CONFIG2,ACCEL_BYPASS_DLPF_1046) ){ // setting accel bandwidth to 184Hz
+                return -1;
+            } 
+            break; 
+
+        case ACCEL_DLPF_BANDWIDTH_420HZ:
+            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_420) ){ // setting accel bandwidth to 184Hz
+                return -1;
+            } 
+            break; 
+
+        case ACCEL_DLPF_BANDWIDTH_218HZ:
+            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_218) ){ // setting accel bandwidth to 184Hz
+                return -1;
+            } 
+            break; 
+
+        case ACCEL_DLPF_BANDWIDTH_99HZ:
+            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_99) ){ // setting accel bandwidth to 92Hz
+                return -1;
+            } 
+            break; 
+
+        case ACCEL_DLPF_BANDWIDTH_45HZ:
+            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_45) ){ // setting accel bandwidth to 41Hz
+                return -1;
+            } 
+            break; 
+
+        case ACCEL_DLPF_BANDWIDTH_21HZ:
+            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_21) ){ // setting accel bandwidth to 20Hz
+                return -1;
+            } 
+            break;
+
+        case ACCEL_DLPF_BANDWIDTH_10HZ:
+            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_10) ){ // setting accel bandwidth to 10Hz
+                return -1;
+            } 
+            break;
+
+        case ACCEL_DLPF_BANDWIDTH_5HZ:
+            if( !writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_5) ){ // setting accel bandwidth to 5Hz
+                return -1;
+            } 
             break; 
     }
 

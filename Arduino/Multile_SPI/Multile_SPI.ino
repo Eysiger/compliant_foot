@@ -39,7 +39,7 @@ ICM20608G IMUSole(10);
 ICM20608G IMUShank(9);
 AS5048A ENCODER(15);
 
-const int number = 1000;
+const int number = 1;
 float ax1[number], ay1[number], az1[number], gx1[number], gy1[number], gz1[number], t1[number];
 float ax2[number], ay2[number], az2[number], gx2[number], gy2[number], gz2[number], t2[number];
 float angle[number];
@@ -68,6 +68,9 @@ void setup() {
   beginStatus2 = IMUShank.begin(ACCEL_RANGE_4G,GYRO_RANGE_250DPS);
   beginStatus3 = ENCODER.begin();
 
+  IMUSole.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
+  IMUShank.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
+  
   //define zero position of encoder
 //  int state = ENCODER.setZero();
 //  Serial.print("Encoder set to zero; successfully (1) or not (0): ");
@@ -162,30 +165,42 @@ void loop() {
   
   if (i == number){
     stime = micros() - stime;
+    
+    unsigned long USBtime = micros();
+    for (int j=0; j<number; j++) {
+      Serial.print(ax1[j],6);
+      Serial.print("\t");
+      Serial.print(ay1[j],6);
+      Serial.print("\t");
+      Serial.print(az1[j],6);
+      Serial.print("\t");
+      Serial.print(gx1[j],6);
+      Serial.print("\t");
+      Serial.print(gy1[j],6);
+      Serial.print("\t");
+      Serial.print(gz1[j],6);
+      Serial.print("\t");
+
+      Serial.print(ax2[j],6);
+      Serial.print("\t");
+      Serial.print(ay2[j],6);
+      Serial.print("\t");
+      Serial.print(az2[j],6);
+      Serial.print("\t");
+      Serial.print(gx2[j],6);
+      Serial.print("\t");
+      Serial.print(gy2[j],6);
+      Serial.print("\t");
+      Serial.print(gz2[j],6);
+      Serial.print("\t");
+
+      Serial.println(angle[j],6);
+    }
+    USBtime = micros() - USBtime;
+    
     float rate = float(number)/stime*1000000;
     Serial.print("rate [Hz]: ");
     Serial.println(rate);
-
-    unsigned long USBtime = micros();
-    for (int j=0; j<number; j++) {
-      Serial.print(ax1[j]);
-      Serial.print(ay1[j]);
-      Serial.print(az1[j]);
-      Serial.print(gx1[j]);
-      Serial.print(gy1[j]);
-      Serial.print(gz1[j]);
-
-      Serial.print(ax2[j]);
-      Serial.print(ay2[j]);
-      Serial.print(az2[j]);
-      Serial.print(gx2[j]);
-      Serial.print(gy2[j]);
-      Serial.print(gz2[j]);
-
-      Serial.print(angle[j]);
-    }
-    USBtime = micros() - USBtime;
-    Serial.println(" ");
     float USBrate = float(number)/USBtime*1000000;
     Serial.print("USB rate [Hz]: ");
     Serial.println(USBrate);
@@ -194,7 +209,7 @@ void loop() {
 //    double sum2 = 0;
 //    sum += values[j];
 
-    delay(5000);
+    //delay(5000);
     stime = micros();
     i = 0;
   }
