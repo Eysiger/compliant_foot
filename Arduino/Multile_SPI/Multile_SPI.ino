@@ -29,6 +29,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 #include "ICM20608G.h"
 #include "AS5048A.h"
+#include "AHRS.h"
 #include "CommunicationUtils.h"
 
 const int PinA = 9;
@@ -39,6 +40,8 @@ const int PinC = 15;
 ICM20608G IMUSole(10);
 ICM20608G IMUShank(9);
 AS5048A ENCODER(15);
+AHRS AHRSSole;
+AHRS AHRSShank;
 
 const int number = 1;
 float ax1[number], ay1[number], az1[number], gx1[number], gy1[number], gz1[number], t1[number];
@@ -75,9 +78,9 @@ void setup() {
   IMUShank.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   
   //define zero position of encoder
-//  int state = ENCODER.setZero();
-//  Serial.print("Encoder set to zero; successfully (1) or not (0): ");
-//  Serial.println(state);
+  int state = ENCODER.setZero();
+  Serial.print("Encoder set to zero; successfully (1) or not (0): ");
+  Serial.println(state);
 
   stime = micros();
 }
@@ -90,20 +93,6 @@ void loop() {
     delay(1000);
   }
   else{
-    /* get the individual data sources */
-    /* This approach is only recommended if you only would like the specified data source (i.e. only
-     * want accel data) since multiple data sources would have a time skew between them. */
-    // get the accelerometer data (m/s/s)
-//    IMUSole.getAccel(&ax1[i], &ay1[i], &az1[i]);
-//  
-//    // get the gyro data (rad/s)
-//    IMUSole.getGyro(&gx1[i], &gy1[i], &gz1[i]);
-  
-    /* get multiple data sources */
-    /* In this approach we get data from multiple data sources (i.e. both gyro and accel). This is 
-     *  the recommended approach since there is no time skew between sources - they are all synced. */
-
-  
     // get the temperature data (C)
     IMUSole.getTemp(&t1[i]);                    // workaround to read out temperature first since first readout after AMS AS5048A does not work
      
@@ -113,7 +102,7 @@ void loop() {
 
      /* getQuaternion */
     float q[4];
-    IMUSole.getQ(q);
+    AHRSSole.getQDCM(q, &ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]);
     q01[i] = q[0];
     q11[i] = q[1];
     q21[i] = q[2];
@@ -126,10 +115,11 @@ void loop() {
 //    Serial.print(q[2]);
 //    Serial.print("\t");
 //    Serial.print(q[3]);
-    serialPrintFloatArr(q, 4);
-    Serial.println(""); //line break
 
-    delay(60);
+    // for processing visualization
+//    serialPrintFloatArr(q, 4);
+//    Serial.println(""); //line break
+//    delay(60);
 
 //     /* getEuler */
 //    float angles[3];
@@ -143,10 +133,6 @@ void loop() {
       
     // print the data
     //printData1();
-
-    /* getMotion7 */
-//    // get the accel (m/s/s), gyro (rad/s), and temperature (C) data
-//    IMUSole.getMotion7(&ax1, &ay1, &az1, &gx1, &gy1, &gz1, &t1);
   }
   if(beginStatus2 < 0) {
     delay(1000);
@@ -155,25 +141,30 @@ void loop() {
     delay(1000);
   }
   else{
-    /* get the individual data sources */
-    /* This approach is only recommended if you only would like the specified data source (i.e. only
-     *  want accel data) since multiple data sources would have a time skew between them. */
-    // get the accelerometer data (m/s/s)
-//    IMUShank.getAccel(&ax2, &ay2, &az2);
-//  
-//    // get the gyro data (rad/s)
-//    IMUShank.getGyro(&gx2, &gy2, &gz2);
-  
-    /* get multiple data sources */
-    /* In this approach we get data from multiple data sources (i.e. both gyro and accel). This is 
-     *  the recommended approach since there is no time skew between sources - they are all synced. */
-  
-     /* getMotion6 */
+    /* getMotion6 */
     // get both the accel (m/s/s) and gyro (rad/s) data
     IMUShank.getMotion6(&ax2[i], &ay2[i], &az2[i], &gx2[i], &gy2[i], &gz2[i]);
-  
-    // get the temperature data (C)
-    //IMUShank.getTemp(&t2[i]);
+
+     /* getQuaternion */
+    float q[4];
+    AHRSShank.getQDCM(q, &ax2[i], &ay2[i], &az2[i], &gx2[i], &gy2[i], &gz2[i]);
+    q02[i] = q[0];
+    q12[i] = q[1];
+    q22[i] = q[2];
+    q32[i] = q[3];
+
+//    Serial.print(q[0]);
+//    Serial.print("\t");
+//    Serial.print(q[1]);
+//    Serial.print("\t");
+//    Serial.print(q[2]);
+//    Serial.print("\t");
+//    Serial.print(q[3]);
+
+    // for processing visualization
+//    serialPrintFloatArr(q, 4);
+//    Serial.println(""); //line break
+//    delay(60);
   
     // print the data
     //printData2();
@@ -193,14 +184,35 @@ void loop() {
     //Serial.println(state);
     //printData3();
   }
-  i++;
   
+
+  float q1[4] = {q01[i], q11[i],q21[i],q31[i]};
+  float q2[4] = {q02[i], q12[i],q22[i],q32[i]};
+  float invq2[4];
+  invertQuat(q2,invq2);
+  float qrel[4];
+  quatMult(invq2,q1,qrel);
+
+  serialPrintFloatArr(qrel, 4);
+  Serial.println(""); //line break
+  delay(100);
+
+  float angles[3];
+  AHRSShank.getEuler(qrel, angles);
+
+  Serial.print(angles[0]);   //yaw
+  Serial.print("\t");
+  Serial.print(angles[1]);   //roll
+  Serial.print("\t");
+  Serial.println(angles[2]); //pitch
+
+  i++;
   if (i == number){
     stime = micros() - stime;
     
     unsigned long USBtime = micros();
     for (int j=0; j<number; j++) {
-      int commas = 2;
+//      int commas = 2;
 //      Serial.print(ax1[j],commas);
 //      Serial.print("\t");
 //      Serial.print(ay1[j],commas);
@@ -292,5 +304,23 @@ void printData2(){
 
 void printData3(){
   Serial.println(angle[i],2);
+}
+
+void quatMult(float q[4], float p[4], float r[4]) {
+  // Input: two quaternions to be multiplied
+  // Output: output of the multiplication
+  
+  // JPL
+  r[0] = -q[1]*p[1] - q[2]*p[2] - q[3]*p[3] + q[0]*p[0];
+  r[1] = q[0]*p[1] + q[3]*p[2] - q[2]*p[3] + q[1]*p[0];
+  r[2] = -q[3]*p[1] + q[0]*p[2] + q[1]*p[3] + q[2]*p[0];
+  r[3] = q[2]*p[1] - q[1]*p[2] + q[0]*p[3] + q[3]*p[0];
+}  
+
+void invertQuat(float q[4], float r[4]) {
+  r[0] = q[0];
+  r[1] = -q[1];
+  r[2] = -q[2];
+  r[3] = -q[3];
 }
 
