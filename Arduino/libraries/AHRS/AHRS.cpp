@@ -10,8 +10,8 @@ adapted from
 
 #include "AHRS.h"
 
-AHRS::AHRS(float bbx, float bby, float bbz) : bx(bbx), by(bby), bz(bbz) {
-    q0 = 1; q1 = 0; q2 = 0; q3 = 0;
+AHRS::AHRS(float bbx, float bby, float bbz) {
+    x << 1, 0, 0, 0, bbx, bby, bbz;
     P << 1/3, 0, 0, 0, 0, 0, 0,
          0, 1/3, 0, 0, 0, 0, 0,
          0, 0, 1/3, 0, 0, 0, 0,
@@ -22,7 +22,6 @@ AHRS::AHRS(float bbx, float bby, float bbz) : bx(bbx), by(bby), bz(bbz) {
     Q << gyroNoise, 0, 0,
          0, gyroNoise, 0,
          0, 0, gyroNoise;
-
     R << accelNoise, 0, 0, //0,
          0, accelNoise, 0, //0,
          0, 0, accelNoise; //0,
@@ -34,19 +33,19 @@ AHRS::AHRS(float bbx, float bby, float bbz) : bx(bbx), by(bby), bz(bbz) {
 void AHRS::EKFupdate(float* ax, float* ay, float* az, float* gx, float* gy, float* gz, float* psi) {
   // Prediction
   float t = sampleTime / 2.0;
-  A << 1, t*bx, t*by, t*bz, t*q1, t*q2, t*q3,
-       -t*bx, 1, -t*bz, t*by, -t*q0, t*q3, -t*q2,
-       -t*by, t*bz, 1, -t*bx, -t*q3, -t*q0, t*q1,
-       -t*bz, -t*by, t*bx, 1, t*q2, -t*q1, -t*q0,
-       0, 0, 0, 0, 1, 0, 0,
-       0, 0, 0 ,0, 0, 1, 0,
-       0, 0, 0 ,0, 0, 0, 1;
+  A <<       1,  t*x(4),  t*x(5),  t*x(6),  t*x(1),  t*x(2),  t*x(3),
+       -t*x(4),       1, -t*x(6),  t*x(5), -t*x(0),  t*x(3), -t*x(2),
+       -t*x(5),  t*x(6),       1, -t*x(4), -t*x(3), -t*x(0),  t*x(1),
+       -t*x(6), -t*x(5),  t*x(4),       1,  t*x(2), -t*x(1), -t*x(0),
+             0,       0,       0,       0,       1,       0,       0,
+             0,       0,       0,       0,       0,       1,       0,
+             0,       0,       0,       0,       0,       0,       1;
 
   Eigen::MatrixXf Quat(4,4);
-  Quat << q0, -q1, -q2, -q3, 
-          q1, q0, -q3, q2, 
-          q2, q3, q0, -q1, 
-          q3, -q2, q1, q0;
+  Quat << x(0), -x(1), -x(2), -x(3), 
+          x(1),  x(0), -x(3),  x(2), 
+          x(2),  x(3),  x(0), -x(1), 
+          x(3), -x(2),  x(1),  x(0);
 
   Eigen::VectorXf u(4);
   Eigen::VectorXf omega(4);
@@ -55,23 +54,23 @@ void AHRS::EKFupdate(float* ax, float* ay, float* az, float* gx, float* gy, floa
 
   Eigen::VectorXf b(4);
   Eigen::VectorXf bias(4);
-  bias << 0, bx, by, bz;
+  bias << 0, x(4), x(5), x(6);
   b = 0.5 * Quat * bias * sampleTime;
 
-  q0 = q0 - b(0) + u(0);
-  q1 = q1 - b(1) + u(1);
-  q2 = q2 - b(2) + u(2);
-  q3 = q3 - b(3) + u(3);
-  bx = bx,
-  by = by,
-  bz = bz;
+  x(0) = x(0) - b(0) + u(0);
+  x(1) = x(1) - b(1) + u(1);
+  x(2) = x(2) - b(2) + u(2);
+  x(3) = x(3) - b(3) + u(3);
+  //x(4) = x(4);
+  //x(5) = x(5);
+  //x(6) = x(6);
 
   // Normalise quaternion
-  float recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
-  q0 *= recipNorm;
-  q1 *= recipNorm;
-  q2 *= recipNorm;
-  q3 *= recipNorm;
+  float recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
+  x(0) *= recipNorm;
+  x(1) *= recipNorm;
+  x(2) *= recipNorm;
+  x(3) *= recipNorm;
   
   Eigen::MatrixXf Quat73(7,3);
   Quat73 << Quat.block<4,3>(0,1),
@@ -82,9 +81,9 @@ void AHRS::EKFupdate(float* ax, float* ay, float* az, float* gx, float* gy, floa
   P = A * P * A.transpose() + 0.25 * Quat73 * Q * Quat73.transpose();
   
   // // Measurement Update
-  H << -2*q2,  2*q3, -2*q0,  2*q1, 0, 0, 0,
-        2*q1,  2*q0,  2*q3,  2*q2, 0, 0, 0,
-        2*q0, -2*q1, -2*q2,  2*q3, 0, 0, 0;
+  H <<  -2*x(2),  2*x(3), -2*x(0),  2*x(1), 0, 0, 0,
+         2*x(1),  2*x(0),  2*x(3),  2*x(2), 0, 0, 0,
+         2*x(0), -2*x(1), -2*x(2),  2*x(3), 0, 0, 0;
   
   K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
 
@@ -92,31 +91,19 @@ void AHRS::EKFupdate(float* ax, float* ay, float* az, float* gx, float* gy, floa
   float a = sqrt(*ax * *ax + *ay * *ay + *az * *az);
   z << *ax / a, *ay / a, *az / a;
   Eigen::VectorXf h(3);
-  h << 2*(q1*q3 - q0*q2), 2*(q2*q3 + q0*q1), q0*q0 - q1*q1 - q2*q2 + q3*q3;
+  h << 2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3);
 
-  Eigen::VectorXf x_prio(7);
-  x_prio << q0, q1, q2, q3, bx, by, bz;
-  Eigen::VectorXf x_post(7);
-  x_post = x_prio + K * (z-h);
+  x = x + K * (z-h);
   
   Eigen::MatrixXf I = Eigen::MatrixXf::Identity(7,7);
   P = (I - K * H) * P;
 
-  // Store in Variables
-  q0 = x_post(0);
-  q1 = x_post(1);
-  q2 = x_post(2);
-  q3 = x_post(3);
-  bx = x_post(4);
-  by = x_post(5);
-  bz = x_post(6);
-
   // Normalise quaternion
-  recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
-  q0 *= recipNorm;
-  q1 *= recipNorm;
-  q2 *= recipNorm;
-  q3 *= recipNorm;
+  recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
+  x(0) *= recipNorm;
+  x(1) *= recipNorm;
+  x(2) *= recipNorm;
+  x(3) *= recipNorm;
 }
 
 void AHRS::getQEKF(float* q, float* ax, float* ay, float* az, float* gx, float* gy, float* gz, float* psi) {  
@@ -125,10 +112,10 @@ void AHRS::getQEKF(float* q, float* ax, float* ay, float* az, float* gx, float* 
   lastUpdate = now;
 
   EKFupdate(ax, ay, az, gx, gy, gz, psi);
-  q[0] = q0;
-  q[1] = q1;
-  q[2] = q2;
-  q[3] = q3;
+  q[0] = x(0);
+  q[1] = x(1);
+  q[2] = x(2);
+  q[3] = x(3);
 }
 
 void AHRS::DCMupdate(float* ax, float* ay, float* az, float* gx, float* gy, float* gz) {
