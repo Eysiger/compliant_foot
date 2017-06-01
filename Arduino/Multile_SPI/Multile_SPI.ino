@@ -57,9 +57,9 @@ unsigned long stime;
 
 Eigen::MatrixXf A(14,14);
 Eigen::MatrixXf Q(6,6);
-Eigen::MatrixXf H(6,14);
-Eigen::MatrixXf R(6,6);
-Eigen::MatrixXf K(14,6);
+Eigen::MatrixXf H(7,14);
+Eigen::MatrixXf R(7,7);
+Eigen::MatrixXf K(14,7);
 Eigen::MatrixXf P(14,14);
 unsigned long lastUpdate, now1;
 Eigen::VectorXf x(14);
@@ -96,6 +96,7 @@ void setup() {
   float gyroNoise = 0.008*sqrt(8000)/180.0*M_PI;
   float gyroBias = 5.0/180.0*M_PI;
   float accelNoise = 0.00025*9.81*sqrt(4000);
+  float encoderNoise = 0.06/180*M_PI;
     x << 1, 0, 0, 0, -0.0084, 0.0056, -0.0052, 1, 0, 0, 0, -0.0180, -0.0073, 0.0015;
     P << 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
          0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -117,12 +118,13 @@ void setup() {
          0, 0, 0, gyroNoise, 0, 0,
          0, 0, 0, 0, gyroNoise, 0,
          0, 0, 0, 0, 0, gyroNoise;
-    R << accelNoise, 0, 0, 0, 0, 0,
-         0, accelNoise, 0, 0, 0, 0,
-         0, 0, accelNoise, 0, 0, 0,
-         0, 0, 0, accelNoise, 0, 0,
-         0, 0, 0, 0, accelNoise, 0,
-         0, 0, 0, 0, 0, accelNoise;
+    R << accelNoise, 0, 0, 0, 0, 0, 0,
+         0, accelNoise, 0, 0, 0, 0, 0,
+         0, 0, accelNoise, 0, 0, 0, 0,
+         0, 0, 0, accelNoise, 0, 0, 0,
+         0, 0, 0, 0, accelNoise, 0, 0,
+         0, 0, 0, 0, 0, accelNoise, 0,
+         0, 0, 0, 0, 0, 0, encoderNoise;
   lastUpdate = micros();;
   
   stime = micros();
@@ -285,6 +287,7 @@ void loop() {
                              0,   0,   0,              0.1,   0,   0,
                              0,   0,   0,                0, 0.1,   0,
                              0,   0,   0,                0,   0, 0.1;
+                             
 //   Serial.println("Quat146: ");
 //   for (int j=0; j<14; j++) {
 //    for (int k=0; k<6; k++) {
@@ -296,57 +299,72 @@ void loop() {
 
   P = A * P * A.transpose() + 0.25 * Quat146 * Q * Quat146.transpose();
 
-//   Serial.println("P_prio: ");
-//   for (int j=0; j<14; j++) {
-//    for (int k=0; k<14; k++) {
-//     Serial.print(P(j,k));
-//     Serial.print("\t");
-//    }
-//    Serial.println("");
-//   }
+   Serial.println("P_prio: ");
+   for (int j=0; j<14; j++) {
+    for (int k=0; k<14; k++) {
+     Serial.print(P(j,k));
+     Serial.print("\t");
+    }
+    Serial.println("");
+   }
 
    // Measurement Update
-   H << -2*x(2),  2*x(3), -2*x(0),  2*x(1), 0, 0, 0,      0,       0,       0,       0, 0, 0, 0,
-         2*x(1),  2*x(0),  2*x(3),  2*x(2), 0, 0, 0,      0,       0,       0,       0, 0, 0, 0,
-         2*x(0), -2*x(1), -2*x(2),  2*x(3), 0, 0, 0,      0,       0,       0,       0, 0, 0, 0,
-              0,       0,       0,       0, 0, 0, 0,-2*x(9), 2*x(10), -2*x(7),  2*x(8), 0, 0, 0,
-              0,       0,       0,       0, 0, 0, 0, 2*x(8),  2*x(7), 2*x(10),  2*x(9), 0, 0, 0,
-              0,       0,       0,       0, 0, 0, 0, 2*x(7), -2*x(8), -2*x(9), 2*x(10), 0, 0, 0;
-//   Serial.println("H: ");
-//   for (int j=0; j<6; j++) {
-//    for (int k=0; k<14; k++) {
-//     Serial.print(H(j,k));
-//     Serial.print("\t");
-//    }
-//    Serial.println("");
-//   }
-   Eigen::MatrixXf mult(6,6);
+   float d01 = -2*( x(0)*x(0)*x(3) + 2*x(0)*x(1)*x(2) - x(1)*x(1)*x(3) + x(2)*x(2)*x(3) + x(3)*x(3)*x(3));
+   float d11 = -2*(-x(0)*x(0)*x(2) + 2*x(0)*x(1)*x(3) + x(1)*x(1)*x(2) + x(2)*x(2)*x(2) + x(2)*x(3)*x(3));
+   float d21 =  2*( x(0)*x(0)*x(1) + 2*x(0)*x(2)*x(3) + x(1)*x(1)*x(1) + x(2)*x(2)*x(1) - x(1)*x(3)*x(3));
+   float d31 =  2*( x(0)*x(0)*x(0) + 2*x(1)*x(2)*x(3) + x(1)*x(1)*x(0) - x(2)*x(2)*x(0) + x(0)*x(3)*x(3));
+   float no1 = (x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3)) * (x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3));
+
+   float d02 = 2*( x(7)*x(7)*x(10) +  2*x(7)*x(8)*x(9) - x(8)*x(8)*x(10) + x(9)*x(9)*x(10) + x(10)*x(10)*x(10));
+   float d12 =  2*(-x(7)*x(7)*x(9) + 2*x(7)*x(8)*x(10) +  x(8)*x(8)*x(9) +  x(9)*x(9)*x(9) +  x(9)*x(10)*x(10));
+   float d22 = -2*( x(7)*x(7)*x(8) + 2*x(7)*x(9)*x(10) +  x(8)*x(8)*x(8) +  x(9)*x(9)*x(8) -  x(8)*x(10)*x(10));
+   float d32 = -2*( x(7)*x(7)*x(7) + 2*x(8)*x(9)*x(10) +  x(8)*x(8)*x(7) -  x(9)*x(9)*x(7) +  x(7)*x(10)*x(10));
+   float no2 = (x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10)) * (x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10));
+   
+   H << -2*x(2),  2*x(3), -2*x(0),  2*x(1), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
+         2*x(1),  2*x(0),  2*x(3),  2*x(2), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
+         2*x(0), -2*x(1), -2*x(2),  2*x(3), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
+              0,       0,       0,       0, 0, 0, 0, -2*x(9), 2*x(10), -2*x(7),  2*x(8), 0, 0, 0,
+              0,       0,       0,       0, 0, 0, 0,  2*x(8),  2*x(7), 2*x(10),  2*x(9), 0, 0, 0,
+              0,       0,       0,       0, 0, 0, 0,  2*x(7), -2*x(8), -2*x(9), 2*x(10), 0, 0, 0,
+        d01/no1, d11/no1, d21/no1, d31/no1, 0, 0, 0, d02/no2, d12/no2, d22/no2, d32/no2, 0, 0, 0;
+        
+   Serial.println("H: ");
+   for (int j=0; j<7; j++) {
+    for (int k=0; k<14; k++) {
+     Serial.print(H(j,k));
+     Serial.print("\t");
+    }
+    Serial.println("");
+   }
+   
+   Eigen::MatrixXf mult(7,7);
    mult = H * P * H.transpose() + R;
    K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
 
 //   Serial.println("mult: ");
-//   for (int j=0; j<6; j++) {
-//    for (int k=0; k<6; k++) {
+//   for (int j=0; j<7; j++) {
+//    for (int k=0; k<7; k++) {
 //     Serial.print(mult(j,k),6);
 //     Serial.print("\t");
 //    }
 //    Serial.println("");
 //   }
-//
-//   Serial.println("K: ");
-//   for (int j=0; j<14; j++) {
-//    for (int k=0; k<6; k++) {
-//     Serial.print(K(j,k),6);
-//     Serial.print("\t");
-//    }
-//    Serial.println("");
-//   }
+
+   Serial.println("K: ");
+   for (int j=0; j<14; j++) {
+    for (int k=0; k<7; k++) {
+     Serial.print(K(j,k),6);
+     Serial.print("\t");
+    }
+    Serial.println("");
+   }
    
-   Eigen::VectorXf z(6);
+   Eigen::VectorXf z(7);
    float a1 = sqrt(ax1[i] * ax1[i] + ay1[i] * ay1[i] + az1[i] * az1[i]);
    float a2 = sqrt(ax2[i] * ax2[i] + ay2[i] * ay2[i] + az2[i] * az2[i]);
-   z << ax1[i] / a1, ay1[i] / a1, az1[i] / a1, ax2[i] / a2, ay2[i] / a2, az2[i] / a2;
-//   
+   z << ax1[i] / a1, ay1[i] / a1, az1[i] / a1, ax2[i] / a2, ay2[i] / a2, az2[i] / a2, tan(angle[i]);
+   
 //  Serial.print("a1: ");
 //  Serial.print(ax1[i]);
 //  Serial.print("\t");
@@ -364,48 +382,49 @@ void loop() {
 //  Serial.print(az2[i]);
 //  Serial.print("\t");
 //  Serial.println(a2);
-//
-//  Serial.println("z: ");
-//  for (int j=0; j<6; j++) {
-//    Serial.print(z(j),6);
-//    Serial.print("\t");
-//  }
-//  Serial.println("");
+
+  Serial.println("z: ");
+  for (int j=0; j<7; j++) {
+    Serial.print(z(j),6);
+    Serial.print("\t");
+  }
+  Serial.println("");
   
-   Eigen::VectorXf h(6);
+   Eigen::VectorXf h(7);
    h << 2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
-        2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10);
+        2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
+        2*(x(3)*x(0) + x(1)*x(2)) / (x(0)*x(0)+x(1)*x(1)-x(2)*x(2)-x(3)*x(3)) - 2*(x(10)*x(7) + x(8)*x(9)) / (x(7)*x(7)+x(8)*x(8)-x(9)*x(9)-x(10)*x(10));
         
-//  Serial.println("h: ");
-//  for (int j=0; j<6; j++) {
-//    Serial.print(h(j),6);
-//    Serial.print("\t");
-//  }
-//  Serial.println("");
+  Serial.println("h: ");
+  for (int j=0; j<7; j++) {
+    Serial.print(h(j),6);
+    Serial.print("\t");
+  }
+  Serial.println("");
 
    x = x + K * (z-h);
 
-//   Eigen::VectorXf update(7);
-//   update = K * (z-h);
-//
-//  Serial.println("update: ");
-//  for (int j=0; j<14; j++) {
-//    Serial.print(update(j),6);
-//    Serial.print("\t");
-//  }
-//  Serial.println(""); 
+   Eigen::VectorXf update(7);
+   update = K * (z-h);
+
+  Serial.println("update: ");
+  for (int j=0; j<14; j++) {
+    Serial.print(update(j),6);
+    Serial.print("\t");
+  }
+  Serial.println(""); 
 
    Eigen::MatrixXf I = Eigen::MatrixXf::Identity(14,14);
    P = (I - K * H) * P;
 
-//   Serial.println("P_post: ");
-//   for (int j=0; j<14; j++) {
-//    for (int k=0; k<14; k++) {
-//     Serial.print(P(j,k));
-//     Serial.print("\t");
-//    }
-//    Serial.println("");
-//   }
+   Serial.println("P_post: ");
+   for (int j=0; j<14; j++) {
+    for (int k=0; k<14; k++) {
+     Serial.print(P(j,k));
+     Serial.print("\t");
+    }
+    Serial.println("");
+   }
 
   // Normalise quaternion1
   recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
@@ -477,8 +496,8 @@ void loop() {
 //  eulToQuat(angles, qyaw);
 //  quatMult(qyaw, qrel, qrel);
 
-  serialPrintFloatArr(q2, 4);
-  Serial.println(""); //line break
+//  serialPrintFloatArr(q2, 4);
+//  Serial.println(""); //line break
   delay(100);
 
   i++;
