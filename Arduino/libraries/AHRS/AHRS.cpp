@@ -8,13 +8,127 @@ adapted from
 
 */
 
-#include "Arduino.h"
 #include "AHRS.h"
 
-AHRS::AHRS(){
+AHRS::AHRS(float bbx, float bby, float bbz) : bx(bbx), by(bby), bz(bbz) {
     q0 = 1; q1 = 0; q2 = 0; q3 = 0;
+    P << 1/3, 0, 0, 0, 0, 0, 0,
+         0, 1/3, 0, 0, 0, 0, 0,
+         0, 0, 1/3, 0, 0, 0, 0,
+         0, 0, 0, 1/3, 0, 0, 0,
+         0, 0, 0, 0, gyroBias, 0, 0,
+         0, 0, 0, 0, 0, gyroBias, 0, 
+         0, 0, 0, 0, 0, 0, gyroBias;
+    Q << gyroNoise, 0, 0,
+         0, gyroNoise, 0,
+         0, 0, gyroNoise;
+
+    R << accelNoise, 0, 0, //0,
+         0, accelNoise, 0, //0,
+         0, 0, accelNoise; //0,
+         //0, 0, 0, encoderNoise; 
     integralFBx = 0.0f,  integralFBy = 0.0f, integralFBz = 0.0f;
     lastUpdate = 0;
+}
+
+void AHRS::EKFupdate(float* ax, float* ay, float* az, float* gx, float* gy, float* gz, float* psi) {
+  // Prediction
+  float t = sampleTime / 2.0;
+  A << 1, t*bx, t*by, t*bz, t*q1, t*q2, t*q3,
+       -t*bx, 1, -t*bz, t*by, -t*q0, t*q3, -t*q2,
+       -t*by, t*bz, 1, -t*bx, -t*q3, -t*q0, t*q1,
+       -t*bz, -t*by, t*bx, 1, t*q2, -t*q1, -t*q0,
+       0, 0, 0, 0, 1, 0, 0,
+       0, 0, 0 ,0, 0, 1, 0,
+       0, 0, 0 ,0, 0, 0, 1;
+
+  Eigen::MatrixXf Quat(4,4);
+  Quat << q0, -q1, -q2, -q3, 
+          q1, q0, -q3, q2, 
+          q2, q3, q0, -q1, 
+          q3, -q2, q1, q0;
+
+  Eigen::VectorXf u(4);
+  Eigen::VectorXf omega(4);
+  omega << 0, *gx, *gy, *gz;
+  u = 0.5 * Quat * omega * sampleTime;
+
+  Eigen::VectorXf b(4);
+  Eigen::VectorXf bias(4);
+  bias << 0, bx, by, bz;
+  b = 0.5 * Quat * bias * sampleTime;
+
+  q0 = q0 - b(0) + u(0);
+  q1 = q1 - b(1) + u(1);
+  q2 = q2 - b(2) + u(2);
+  q3 = q3 - b(3) + u(3);
+  bx = bx,
+  by = by,
+  bz = bz;
+
+  // Normalise quaternion
+  float recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+  q0 *= recipNorm;
+  q1 *= recipNorm;
+  q2 *= recipNorm;
+  q3 *= recipNorm;
+  
+  Eigen::MatrixXf Quat73(7,3);
+  Quat73 << Quat.block<4,3>(0,1),
+            0.1, 0, 0,
+            0, 0.1, 0,
+            0, 0, 0.1;
+
+  P = A * P * A.transpose() + 0.25 * Quat73 * Q * Quat73.transpose();
+  
+  // // Measurement Update
+  H << -2*q2,  2*q3, -2*q0,  2*q1, 0, 0, 0,
+        2*q1,  2*q0,  2*q3,  2*q2, 0, 0, 0,
+        2*q0, -2*q1, -2*q2,  2*q3, 0, 0, 0;
+  
+  K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
+
+  Eigen::VectorXf z(3);
+  float a = sqrt(*ax * *ax + *ay * *ay + *az * *az);
+  z << *ax / a, *ay / a, *az / a;
+  Eigen::VectorXf h(3);
+  h << 2*(q1*q3 - q0*q2), 2*(q2*q3 + q0*q1), q0*q0 - q1*q1 - q2*q2 + q3*q3;
+
+  Eigen::VectorXf x_prio(7);
+  x_prio << q0, q1, q2, q3, bx, by, bz;
+  Eigen::VectorXf x_post(7);
+  x_post = x_prio + K * (z-h);
+  
+  Eigen::MatrixXf I = Eigen::MatrixXf::Identity(7,7);
+  P = (I - K * H) * P;
+
+  // Store in Variables
+  q0 = x_post(0);
+  q1 = x_post(1);
+  q2 = x_post(2);
+  q3 = x_post(3);
+  bx = x_post(4);
+  by = x_post(5);
+  bz = x_post(6);
+
+  // Normalise quaternion
+  recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+  q0 *= recipNorm;
+  q1 *= recipNorm;
+  q2 *= recipNorm;
+  q3 *= recipNorm;
+}
+
+void AHRS::getQEKF(float* q, float* ax, float* ay, float* az, float* gx, float* gy, float* gz, float* psi) {  
+  now = micros();
+  sampleTime = (now - lastUpdate) / 1000000.0;
+  lastUpdate = now;
+
+  EKFupdate(ax, ay, az, gx, gy, gz, psi);
+  q[0] = q0;
+  q[1] = q1;
+  q[2] = q2;
+  q[3] = q3;
 }
 
 void AHRS::DCMupdate(float* ax, float* ay, float* az, float* gx, float* gy, float* gz) {
@@ -111,35 +225,56 @@ void AHRS::getQDCM(float* q, float* ax, float* ay, float* az, float* gx, float* 
   q[3] = q3;
 }
 
-void AHRS::getEuler(float* q, float* angles) {
-  angles[0] = atan2(2 * q[1] * q[2] - 2 * q[0] * q[3], 2 * q[0]*q[0] + 2 * q[1] * q[1] - 1) * 180/M_PI; // psi
-  angles[1] = -asin(2 * q[1] * q[3] + 2 * q[0] * q[2]) * 180/M_PI; // theta
-  angles[2] = atan2(2 * q[2] * q[3] - 2 * q[0] * q[1], 2 * q[0] * q[0] + 2 * q[3] * q[3] - 1) * 180/M_PI; // phi
+void quatToEul(float* q, float* angles) {
+  angles[0] = atan2(2 * q[1] * q[2] - 2 * q[0] * q[3], 2 * q[0]*q[0] + 2 * q[1] * q[1] - 1); // psi
+  angles[1] = -asin(2 * q[1] * q[3] + 2 * q[0] * q[2]); // theta
+  angles[2] = atan2(2 * q[2] * q[3] - 2 * q[0] * q[1], 2 * q[0] * q[0] + 2 * q[3] * q[3] - 1); // phi
+  // angles[0] = atan2(2 * q[1] * q[2] + 2 * q[0] * q[3], 2 * q[0]*q[0] + 2 * q[1] * q[1] - 1); // psi   //wikipedia definition
+  // angles[1] = asin(-2 * q[1] * q[3] + 2 * q[0] * q[2]); // theta
+  // angles[2] = atan2(2 * q[2] * q[3] + 2 * q[0] * q[1], 2 * q[0] * q[0] + 2 * q[3] * q[3] - 1); // phi
 }
 
-void AHRS::getAngles(float* q, float* angles) {
+void eulToQuat(float* angles, float* q){
+  float c2 = cos(angles[2]/2);
+  float s2 = sin(angles[2]/2);
+  float c1 = cos(angles[1]/2);
+  float s1 = sin(angles[1]/2);
+  float c0 = cos(angles[0]/2);
+  float s0 = sin(angles[0]/2);
+
+  q[0] = c2*c1*c0 + s2*s1*s0;
+  q[1] = - s2*c1*c0 + c2*s1*s0;
+  q[2] = - c2*s1*c0 - s2*c1*s0;
+  q[3] = - c2*c1*s0 + s2*s1*c0;
+  // q[0] = c2*c1*c0 + s2*s1*s0;    //wikipedia definition
+  // q[1] = s2*c1*c0 - c2*s1*s0;
+  // q[2] = c2*s1*c0 + s2*c1*s0;
+  // q[3] = c2*c1*s0 - s2*s1*c0;
+}
+
+void getAngles(float* q, float* angles) {
   float a[3]; //Euler
-  getEuler(q, a);
+  quatToEul(q, a);
 
   angles[0] = a[0];
   angles[1] = a[1];
   angles[2] = a[2];
   
-  if(angles[0] < 0)angles[0] += 360;
-  if(angles[1] < 0)angles[1] += 360;
-  if(angles[2] < 0)angles[2] += 360;
+  if(angles[0] < 0)angles[0] += 2*M_PI;
+  if(angles[1] < 0)angles[1] += 2*M_PI;
+  if(angles[2] < 0)angles[2] += 2*M_PI;
 }
 
-void AHRS::getYawPitchRoll(float* q, float* ypr) {
+void getYawPitchRoll(float* q, float* ypr) {
   float gxhat, gyhat, gzhat; // estimated gravity direction
   
   gxhat = 2 * (q[1]*q[3] - q[0]*q[2]);
   gyhat = 2 * (q[0]*q[1] + q[2]*q[3]);
   gzhat = q[0]*q[0] - q[1]*q[1] - q[2]*q[2] + q[3]*q[3];
   
-  ypr[0] = atan2(2 * q[1] * q[2] - 2 * q[0] * q[3], 2 * q[0]*q[0] + 2 * q[1] * q[1] - 1) * 180/M_PI;
-  ypr[1] = atan(gxhat / sqrt(gyhat*gyhat + gzhat*gzhat))  * 180/M_PI;
-  ypr[2] = atan(gyhat / sqrt(gxhat*gxhat + gzhat*gzhat))  * 180/M_PI;
+  ypr[0] = atan2(2 * q[1] * q[2] - 2 * q[0] * q[3], 2 * q[0]*q[0] + 2 * q[1] * q[1] - 1);
+  ypr[1] = atan(gxhat / sqrt(gyhat*gyhat + gzhat*gzhat));
+  ypr[2] = atan(gyhat / sqrt(gxhat*gxhat + gzhat*gzhat));
 }
 
 float invSqrt(float number) {
@@ -155,3 +290,44 @@ float invSqrt(float number) {
   y = y * ( f - ( x * y * y ) );
   return y;
 } 
+
+void quatMult(float q[4], float p[4], float r[4]) {
+  // Input: two quaternions to be multiplied
+  // Output: output of the multiplication
+  float temp[4];
+  // JPL
+  temp[0] = -q[1]*p[1] - q[2]*p[2] - q[3]*p[3] + q[0]*p[0];
+  temp[1] = q[0]*p[1] + q[3]*p[2] - q[2]*p[3] + q[1]*p[0];
+  temp[2] = -q[3]*p[1] + q[0]*p[2] + q[1]*p[3] + q[2]*p[0];
+  temp[3] = q[2]*p[1] - q[1]*p[2] + q[0]*p[3] + q[3]*p[0];
+  r[0] = temp[0];
+  r[1] = temp[1];
+  r[2] = temp[2];
+  r[3] = temp[3];
+}  
+
+void invertQuat(float q[4], float r[4]) {
+  r[0] = q[0];
+  r[1] = -q[1];
+  r[2] = -q[2];
+  r[3] = -q[3];
+}
+
+void quatToRotMat(float q[4], Eigen::MatrixXf& Rot){
+  Rot(0,0) = 2*q[0]*q[0] - 1 + 2*q[1]*q[1];
+  Rot(0,1) = 2*q[0]*q[3] + 2*q[1]*q[2];
+  Rot(0,2) = -2*q[0]*q[2] + 2*q[1]*q[3];
+  Rot(1,0) = -2*q[0]*q[3] + 2*q[2]*q[1];
+  Rot(1,1) = 2*q[0]*q[0] - 1  + 2*q[2]*q[2];
+  Rot(1,2) = 2*q[0]*q[1] + 2*q[2]*q[3];
+  Rot(2,0) = 2*q[0]*q[2] + 2*q[3]*q[1];
+  Rot(2,1) = -2*q[0]*q[1] + 2*q[3]*q[2];
+  Rot(2,2) = 2*q[0]*q[0] - 1  + 2*q[3]*q[3];
+}
+
+void rotMatToQuat(Eigen::MatrixXf& Rot, float q[4]){
+  q[0] = sqrt(1+Rot(0,0)+Rot(1,1)+Rot(2,2))/2;
+  q[1] = (Rot(1,2)-Rot(2,1))/(4*q[0]);
+  q[2] = (Rot(2,0)-Rot(0,2))/(4*q[0]);
+  q[3] = (Rot(0,1)-Rot(1,0))/(4*q[0]);
+}
