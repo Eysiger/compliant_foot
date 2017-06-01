@@ -56,6 +56,7 @@ class AS5048A{
         bool getAngleCounts(uint16_t* angle);
         
         bool setZero();
+        bool setZeroPos(uint16_t* angle);
         int fieldStrength();
         
     private:

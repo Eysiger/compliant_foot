@@ -208,34 +208,40 @@ bool AS5048A::setZero(){
     uint16_t angle;
     if (getAngleCounts(&angle))
     {
-        uint16_t high = ((angle & 0x3FC0) >> 6) & 0x00FF;
-        uint16_t low = angle & 0x003F;
-
-        addParity(&high);
-        addParity(&low);
-
-        writeRegister(WRITE_ZERO_POS1, high);
-        writeRegister(WRITE_ZERO_POS2, low);
-
-        readRegisters(READ_ZERO_POS1, 1, &buff[0]);
-        readRegisters(READ_ZERO_POS2, 1, &buff[1]);
-
-        if (!check(buff[0]) || !check(buff[1])){  // check parity and error flag
-            return false;
-        }
-        
-        if(( ((buff[0] & 0x00FF) << 6) | (buff[1] & 0x003F) ) == (angle & 0x3FFF)) { // check set value
-            return true;
-        }
-        else{
-            return false;
-        }
+        return setZeroPos(&angle);
     }
     else {
         return false;
     }
 }
 
+/* set given position in counts as zero position */
+bool AS5048A::setZeroPos(uint16_t* angle){
+
+    uint16_t high = ((*angle & 0x3FC0) >> 6) & 0x00FF;
+    uint16_t low = *angle & 0x003F;
+
+    addParity(&high);
+    addParity(&low);
+
+    writeRegister(WRITE_ZERO_POS1, high);
+    writeRegister(WRITE_ZERO_POS2, low);
+
+    uint16_t temp[2];
+    readRegisters(READ_ZERO_POS1, 1, &temp[0]);
+    readRegisters(READ_ZERO_POS2, 1, &temp[1]);
+
+    if (!check(temp[0]) || !check(temp[1])){  // check parity and error flag
+        return false;
+    }
+    
+    if(( ((temp[0] & 0x00FF) << 6) | (temp[1] & 0x003F) ) == (*angle & 0x3FFF)) { // check set value
+        return true;
+    }
+    else{
+        return false;
+    }
+}
 /* reads out the strength of the magnetic field */
 int AS5048A::fieldStrength(){
     uint16_t buff[1];
