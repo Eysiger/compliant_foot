@@ -10,112 +10,196 @@ adapted from
 
 #include "AHRS.h"
 
-AHRS::AHRS(float bbx, float bby, float bbz) {
-    x << 1, 0, 0, 0, bbx, bby, bbz;
-    P << 1/3, 0, 0, 0, 0, 0, 0,
-         0, 1/3, 0, 0, 0, 0, 0,
-         0, 0, 1/3, 0, 0, 0, 0,
-         0, 0, 0, 1/3, 0, 0, 0,
-         0, 0, 0, 0, gyroBias, 0, 0,
-         0, 0, 0, 0, 0, gyroBias, 0, 
-         0, 0, 0, 0, 0, 0, gyroBias;
-    Q << gyroNoise, 0, 0,
-         0, gyroNoise, 0,
-         0, 0, gyroNoise;
-    R << accelNoise, 0, 0, //0,
-         0, accelNoise, 0, //0,
-         0, 0, accelNoise; //0,
-         //0, 0, 0, encoderNoise; 
+AHRS::AHRS(float bx1, float by1, float bz1, float bx2, float by2, float bz2) {
+    x << 1, 0, 0, 0, bx1, by1, bz1, 1, 0, 0, 0, bx2, by2, bz2;
+    P << 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, gyroBias, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, gyroBias, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, gyroBias, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, gyroBias, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, gyroBias, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, gyroBias;
+    Q << gyroNoise, 0, 0, 0, 0, 0,
+         0, gyroNoise, 0, 0, 0, 0,
+         0, 0, gyroNoise, 0, 0, 0,
+         0, 0, 0, gyroNoise, 0, 0,
+         0, 0, 0, 0, gyroNoise, 0,
+         0, 0, 0, 0, 0, gyroNoise;
+    R << accelNoise, 0, 0, 0, 0, 0, 0,
+         0, accelNoise, 0, 0, 0, 0, 0,
+         0, 0, accelNoise, 0, 0, 0, 0,
+         0, 0, 0, accelNoise, 0, 0, 0,
+         0, 0, 0, 0, accelNoise, 0, 0,
+         0, 0, 0, 0, 0, accelNoise, 0,
+         0, 0, 0, 0, 0, 0, encoderNoise; 
+    I = Eigen::MatrixXf::Identity(14,14);
     integralFBx = 0.0f,  integralFBy = 0.0f, integralFBz = 0.0f;
-    lastUpdate = 0;
+    lastUpdate = micros();
 }
 
-void AHRS::EKFupdate(float* ax, float* ay, float* az, float* gx, float* gy, float* gz, float* psi) {
-  // Prediction
-  float t = sampleTime / 2.0;
-  A <<       1,  t*x(4),  t*x(5),  t*x(6),  t*x(1),  t*x(2),  t*x(3),
-       -t*x(4),       1, -t*x(6),  t*x(5), -t*x(0),  t*x(3), -t*x(2),
-       -t*x(5),  t*x(6),       1, -t*x(4), -t*x(3), -t*x(0),  t*x(1),
-       -t*x(6), -t*x(5),  t*x(4),       1,  t*x(2), -t*x(1), -t*x(0),
-             0,       0,       0,       0,       1,       0,       0,
-             0,       0,       0,       0,       0,       1,       0,
-             0,       0,       0,       0,       0,       0,       1;
+void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {
+    // Prediction
 
-  Eigen::MatrixXf Quat(4,4);
-  Quat << x(0), -x(1), -x(2), -x(3), 
-          x(1),  x(0), -x(3),  x(2), 
-          x(2),  x(3),  x(0), -x(1), 
-          x(3), -x(2),  x(1),  x(0);
+    float t = sampleTime / 2.0;
+    A <<       1,  t*x(4),  t*x(5),  t*x(6),  t*x(1),  t*x(2),  t*x(3),        0,        0,        0,        0,        0,        0,        0,
+         -t*x(4),       1, -t*x(6),  t*x(5), -t*x(0),  t*x(3), -t*x(2),        0,        0,        0,        0,        0,        0,        0,
+         -t*x(5),  t*x(6),       1, -t*x(4), -t*x(3), -t*x(0),  t*x(1),        0,        0,        0,        0,        0,        0,        0,
+         -t*x(6), -t*x(5),  t*x(4),       1,  t*x(2), -t*x(1), -t*x(0),        0,        0,        0,        0,        0,        0,        0,
+               0,       0,       0,       0,       1,       0,       0,        0,        0,        0,        0,        0,        0,        0,
+               0,       0,       0,       0,       0,       1,       0,        0,        0,        0,        0,        0,        0,        0,
+               0,       0,       0,       0,       0,       0,       1,        0,        0,        0,        0,        0,        0,        0,
+               0,       0,       0,       0,       0,       0,       0,        1,  t*x(11),  t*x(12),  t*x(13),   t*x(8),   t*x(9),  t*x(10),
+               0,       0,       0,       0,       0,       0,       0, -t*x(11),        1, -t*x(13),  t*x(12),  -t*x(7),  t*x(10),  -t*x(9),
+               0,       0,       0,       0,       0,       0,       0, -t*x(12),  t*x(13),        1, -t*x(11), -t*x(10),  -t*x(7),   t*x(8),
+               0,       0,       0,       0,       0,       0,       0, -t*x(13), -t*x(12),  t*x(11),        1,   t*x(9),  -t*x(8),  -t*x(7),
+               0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        1,        0,        0,
+               0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        1,        0,
+               0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        0,        1;
 
-  Eigen::VectorXf u(4);
-  Eigen::VectorXf omega(4);
-  omega << 0, *gx, *gy, *gz;
-  u = 0.5 * Quat * omega * sampleTime;
+    Eigen::MatrixXf Quat1(4,4);
+    Quat1 << x(0), -x(1), -x(2), -x(3), 
+             x(1),  x(0), -x(3),  x(2), 
+             x(2),  x(3),  x(0), -x(1), 
+             x(3), -x(2),  x(1),  x(0);
 
-  Eigen::VectorXf b(4);
-  Eigen::VectorXf bias(4);
-  bias << 0, x(4), x(5), x(6);
-  b = 0.5 * Quat * bias * sampleTime;
+    Eigen::MatrixXf Quat2(4,4);
+    Quat2 <<  x(7), -x(8),  -x(9), -x(10), 
+              x(8),  x(7), -x(10),   x(9), 
+              x(9), x(10),   x(7),  -x(8), 
+             x(10), -x(9),   x(8),   x(7);
 
-  x(0) = x(0) - b(0) + u(0);
-  x(1) = x(1) - b(1) + u(1);
-  x(2) = x(2) - b(2) + u(2);
-  x(3) = x(3) - b(3) + u(3);
-  //x(4) = x(4);
-  //x(5) = x(5);
-  //x(6) = x(6);
+    Eigen::VectorXf u1(4);
+    Eigen::VectorXf omega1(4);
+    omega1 << 0, *gx1, *gy1, *gz1;
+    u1 = 0.5 * Quat1 * omega1 * sampleTime;
 
-  // Normalise quaternion
-  float recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
-  x(0) *= recipNorm;
-  x(1) *= recipNorm;
-  x(2) *= recipNorm;
-  x(3) *= recipNorm;
-  
-  Eigen::MatrixXf Quat73(7,3);
-  Quat73 << Quat.block<4,3>(0,1),
-            0.1, 0, 0,
-            0, 0.1, 0,
-            0, 0, 0.1;
+    Eigen::VectorXf u2(4);
+    Eigen::VectorXf omega2(4);
+    omega2 << 0, *gx2, *gy2, *gz2;
+    u2 = 0.5 * Quat2 * omega2 * sampleTime;
 
-  P = A * P * A.transpose() + 0.25 * Quat73 * Q * Quat73.transpose();
-  
-  // // Measurement Update
-  H <<  -2*x(2),  2*x(3), -2*x(0),  2*x(1), 0, 0, 0,
-         2*x(1),  2*x(0),  2*x(3),  2*x(2), 0, 0, 0,
-         2*x(0), -2*x(1), -2*x(2),  2*x(3), 0, 0, 0;
-  
-  K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
+    Eigen::VectorXf b1(4);
+    Eigen::VectorXf bias1(4);
+    bias1 << 0, x(4), x(5), x(6);
+    b1 = 0.5 * Quat1 * bias1 * sampleTime;
 
-  Eigen::VectorXf z(3);
-  float a = sqrt(*ax * *ax + *ay * *ay + *az * *az);
-  z << *ax / a, *ay / a, *az / a;
-  Eigen::VectorXf h(3);
-  h << 2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3);
+    Eigen::VectorXf b2(4);
+    Eigen::VectorXf bias2(4);
+    bias2 << 0, x(11), x(12), x(13);
+    b2 = 0.5 * Quat2 * bias2 * sampleTime;
 
-  x = x + K * (z-h);
-  
-  Eigen::MatrixXf I = Eigen::MatrixXf::Identity(7,7);
-  P = (I - K * H) * P;
+    L <<         Quat1.block<4,3>(0,1), Eigen::MatrixXf::Zero(4,3),
+                         0.1,   0,   0,                0,   0,   0, 
+                           0, 0.1,   0,                0,   0,   0,
+                           0,   0, 0.1,                0,   0,   0,
+            Eigen::MatrixXf::Zero(4,3),      Quat2.block<4,3>(0,1),
+                           0,   0,   0,              0.1,   0,   0,
+                           0,   0,   0,                0, 0.1,   0,
+                           0,   0,   0,                0,   0, 0.1;
 
-  // Normalise quaternion
-  recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
-  x(0) *= recipNorm;
-  x(1) *= recipNorm;
-  x(2) *= recipNorm;
-  x(3) *= recipNorm;
+    x(0) = x(0) - b1(0) + u1(0);
+    x(1) = x(1) - b1(1) + u1(1);
+    x(2) = x(2) - b1(2) + u1(2);
+    x(3) = x(3) - b1(3) + u1(3);
+    //x(4) = x(4);
+    //x(5) = x(5);
+    //x(6) = x(6);
+    x(7)  =  x(7) - b2(0) + u2(0);
+    x(8)  =  x(8) - b2(1) + u2(1);
+    x(9)  =  x(9) - b2(2) + u2(2);
+    x(10) = x(10) - b2(3) + u2(3);
+    //x(11) = x(11);
+    //x(12) = x(12);
+    //x(13) = x(13);
+
+    P = A * P * A.transpose() + 0.25 * L * Q * L.transpose();
+
+    // Normalise quaternion1
+    float recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
+    x(0) *= recipNorm;
+    x(1) *= recipNorm;
+    x(2) *= recipNorm;
+    x(3) *= recipNorm;
+
+    // Normalise quaternion2
+    recipNorm = invSqrt(x(7) * x(7) + x(8) * x(8) + x(9) * x(9) + x(10) * x(10));
+    x(7)  *= recipNorm;
+    x(8)  *= recipNorm;
+    x(9)  *= recipNorm;
+    x(10) *= recipNorm;
+
+    // Measurement Update
+
+    float d01 = -2*( x(0)*x(0)*x(3) + 2*x(0)*x(1)*x(2) - x(1)*x(1)*x(3) + x(2)*x(2)*x(3) + x(3)*x(3)*x(3));
+    float d11 = -2*(-x(0)*x(0)*x(2) + 2*x(0)*x(1)*x(3) + x(1)*x(1)*x(2) + x(2)*x(2)*x(2) + x(2)*x(3)*x(3));
+    float d21 =  2*( x(0)*x(0)*x(1) + 2*x(0)*x(2)*x(3) + x(1)*x(1)*x(1) + x(2)*x(2)*x(1) - x(1)*x(3)*x(3));
+    float d31 =  2*( x(0)*x(0)*x(0) + 2*x(1)*x(2)*x(3) + x(1)*x(1)*x(0) - x(2)*x(2)*x(0) + x(0)*x(3)*x(3));
+    float no1 = (x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3)) * (x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3));
+
+    float d02 = 2*( x(7)*x(7)*x(10) +  2*x(7)*x(8)*x(9) - x(8)*x(8)*x(10) + x(9)*x(9)*x(10) + x(10)*x(10)*x(10));
+    float d12 =  2*(-x(7)*x(7)*x(9) + 2*x(7)*x(8)*x(10) +  x(8)*x(8)*x(9) +  x(9)*x(9)*x(9) +  x(9)*x(10)*x(10));
+    float d22 = -2*( x(7)*x(7)*x(8) + 2*x(7)*x(9)*x(10) +  x(8)*x(8)*x(8) +  x(9)*x(9)*x(8) -  x(8)*x(10)*x(10));
+    float d32 = -2*( x(7)*x(7)*x(7) + 2*x(8)*x(9)*x(10) +  x(8)*x(8)*x(7) -  x(9)*x(9)*x(7) +  x(7)*x(10)*x(10));
+    float no2 = (x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10)) * (x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10));
+
+    H << -2*x(2),  2*x(3), -2*x(0),  2*x(1), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
+          2*x(1),  2*x(0),  2*x(3),  2*x(2), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
+          2*x(0), -2*x(1), -2*x(2),  2*x(3), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
+               0,       0,       0,       0, 0, 0, 0, -2*x(9), 2*x(10), -2*x(7),  2*x(8), 0, 0, 0,
+               0,       0,       0,       0, 0, 0, 0,  2*x(8),  2*x(7), 2*x(10),  2*x(9), 0, 0, 0,
+               0,       0,       0,       0, 0, 0, 0,  2*x(7), -2*x(8), -2*x(9), 2*x(10), 0, 0, 0,
+         d01/no1, d11/no1, d21/no1, d31/no1, 0, 0, 0, d02/no2, d12/no2, d22/no2, d32/no2, 0, 0, 0;
+
+    K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
+
+    float a1 = sqrt(*ax1 * *ax1 + *ay1 * *ay1 + *az1 * *az1);
+    float a2 = sqrt(*ax2 * *ax2 + *ay2 * *ay2 + *az2 * *az2);
+    z << *ax1 / a1, *ay1 / a1, *az1 / a1, *ax2 / a2, *ay2 / a2, *az2 / a2, tan(*psi);
+    h <<  2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
+         2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
+          2*(x(3)*x(0) + x(1)*x(2)) / (x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3)) - 2*(x(10)*x(7) + x(8)*x(9)) / (x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10));
+
+    x = x + K * (z-h);
+
+    P = (I - K * H) * P;
+
+    // Normalise quaternion1
+    recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
+    x(0) *= recipNorm;
+    x(1) *= recipNorm;
+    x(2) *= recipNorm;
+    x(3) *= recipNorm;
+
+    // Normalise quaternion2
+    recipNorm = invSqrt(x(7) * x(7) + x(8) * x(8) + x(9) * x(9) + x(10) * x(10));
+    x(7)  *= recipNorm;
+    x(8)  *= recipNorm;
+    x(9)  *= recipNorm;
+    x(10) *= recipNorm;
 }
 
-void AHRS::getQEKF(float* q, float* ax, float* ay, float* az, float* gx, float* gy, float* gz, float* psi) {  
+void AHRS::getQEKF(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {  
   now = micros();
   sampleTime = (now - lastUpdate) / 1000000.0;
   lastUpdate = now;
 
-  EKFupdate(ax, ay, az, gx, gy, gz, psi);
-  q[0] = x(0);
-  q[1] = x(1);
-  q[2] = x(2);
-  q[3] = x(3);
+  EKFupdate(ax1, ay1, az1, gx1, gy1, gz1, ax2, ay2, az2, gx2, gy2, gz2, psi);
+  q1[0] = x(0);
+  q1[1] = x(1);
+  q1[2] = x(2);
+  q1[3] = x(3);
+
+  q2[0] = x(7);
+  q2[1] = x(8);
+  q2[2] = x(9);
+  q2[3] = x(10);
 }
 
 void AHRS::DCMupdate(float* ax, float* ay, float* az, float* gx, float* gy, float* gz) {
