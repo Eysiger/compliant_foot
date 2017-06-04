@@ -177,7 +177,7 @@ bool AS5048A::getAngleCounts(uint16_t* angle){
     return true; // return if successfull
 }
 
-/* get encoder data given pointers to store the value */
+/* get encoder data in degree given pointers to store the value */
 bool AS5048A::getAngle(float* angle){
     uint16_t count;
 
