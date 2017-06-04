@@ -41,9 +41,7 @@ class AHRS{
         Eigen::Matrix<float, 4, 1> omega1;
         Eigen::Matrix<float, 4, 1> u2;
         Eigen::Matrix<float, 4, 1> omega2;
-        Eigen::Matrix<float, 4, 1> b1;
         Eigen::Matrix<float, 4, 1> bias1;
-        Eigen::Matrix<float, 4, 1> b2;
         Eigen::Matrix<float, 4, 1> bias2;
         Eigen::Matrix<float, 6, 6> Q;
         Eigen::Matrix<float, 14, 6> L;

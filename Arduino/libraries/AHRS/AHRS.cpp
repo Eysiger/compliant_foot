@@ -46,7 +46,33 @@ AHRS::AHRS(float bx1, float by1, float bz1, float bx2, float by2, float bz2) {
 
 void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {
     // Prediction
+    // x_k+1 = x_k + 0.5*Quat(x_k)*(omega-bias)*delta_t
 
+    // quaternion of IMU 1 (foothold) in matrix form
+    Eigen::MatrixXf Quat1(4,4);
+    Quat1 << x(0), -x(1), -x(2), -x(3), 
+             x(1),  x(0), -x(3),  x(2), 
+             x(2),  x(3),  x(0), -x(1), 
+             x(3), -x(2),  x(1),  x(0);
+
+    // quaternion of IMU 2 (shank) in matrix form
+    Eigen::MatrixXf Quat2(4,4);
+    Quat2 <<  x(7), -x(8),  -x(9), -x(10), 
+              x(8),  x(7), -x(10),   x(9), 
+              x(9), x(10),   x(7),  -x(8), 
+             x(10), -x(9),   x(8),   x(7);
+
+    // prediction update for quaternion of IMU 1 (foothold)
+    omega1 << 0, *gx1, *gy1, *gz1;
+    bias1 << 0, x(4), x(5), x(6);
+    u1 = 0.5 * Quat1 * (omega1 - bias1) * sampleTime;
+
+    // prediction update for quaternion of IMU 2 (shank)
+    omega2 << 0, *gx2, *gy2, *gz2;
+    bias2 << 0, x(11), x(12), x(13);
+    u2 = 0.5 * Quat2 * (omega2 - bias2) * sampleTime;
+
+    // calculate linearized jacobian matrix A = d (x_k + 0.5*Quat(x_k)*(omega-bias)*delta_t)/ dx_k
     float t = sampleTime / 2.0;
     A <<       1,  t*x(4),  t*x(5),  t*x(6),  t*x(1),  t*x(2),  t*x(3),        0,        0,        0,        0,        0,        0,        0,
          -t*x(4),       1, -t*x(6),  t*x(5), -t*x(0),  t*x(3), -t*x(2),        0,        0,        0,        0,        0,        0,        0,
@@ -63,30 +89,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
                0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        1,        0,
                0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        0,        1;
 
-    Eigen::MatrixXf Quat1(4,4);
-    Quat1 << x(0), -x(1), -x(2), -x(3), 
-             x(1),  x(0), -x(3),  x(2), 
-             x(2),  x(3),  x(0), -x(1), 
-             x(3), -x(2),  x(1),  x(0);
-
-    Eigen::MatrixXf Quat2(4,4);
-    Quat2 <<  x(7), -x(8),  -x(9), -x(10), 
-              x(8),  x(7), -x(10),   x(9), 
-              x(9), x(10),   x(7),  -x(8), 
-             x(10), -x(9),   x(8),   x(7);
-
-    omega1 << 0, *gx1, *gy1, *gz1;
-    u1 = 0.5 * Quat1 * omega1 * sampleTime;
-
-    omega2 << 0, *gx2, *gy2, *gz2;
-    u2 = 0.5 * Quat2 * omega2 * sampleTime;
-
-    bias1 << 0, x(4), x(5), x(6);
-    b1 = 0.5 * Quat1 * bias1 * sampleTime;
-
-    bias2 << 0, x(11), x(12), x(13);
-    b2 = 0.5 * Quat2 * bias2 * sampleTime;
-
+    // calculate the covariance of the gyroscope noise in the direction of the quaternions Q*R*transpose(Q), set the bias noise to 0
     L <<         Quat1.block<4,3>(0,1), Eigen::MatrixXf::Zero(4,3),
                            0,   0,   0,                0,   0,   0, 
                            0,   0,   0,                0,   0,   0,
@@ -96,44 +99,68 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
                            0,   0,   0,                0,   0,   0,
                            0,   0,   0,                0,   0,   0;
 
-    x(0) = x(0) - b1(0) + u1(0);
-    x(1) = x(1) - b1(1) + u1(1);
-    x(2) = x(2) - b1(2) + u1(2);
-    x(3) = x(3) - b1(3) + u1(3);
+    // update states with prediction
+    x(0) = x(0) + u1(0);
+    x(1) = x(1) + u1(1);
+    x(2) = x(2) + u1(2);
+    x(3) = x(3) + u1(3);
     //x(4) = x(4);
     //x(5) = x(5);
     //x(6) = x(6);
-    x(7)  =  x(7) - b2(0) + u2(0);
-    x(8)  =  x(8) - b2(1) + u2(1);
-    x(9)  =  x(9) - b2(2) + u2(2);
-    x(10) = x(10) - b2(3) + u2(3);
+    x(7)  =  x(7) + u2(0);
+    x(8)  =  x(8) + u2(1);
+    x(9)  =  x(9) + u2(2);
+    x(10) = x(10) + u2(3);
     //x(11) = x(11);
     //x(12) = x(12);
     //x(13) = x(13);
 
+    // update the covarinace matrix with prediction
     P = A * P * A.transpose() + 0.25 * L * Q * L.transpose();
 
-    // Normalise quaternion1
+    // Normalise quaternion of IMU 1 (foothold)
     float recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
     x(0) *= recipNorm;
     x(1) *= recipNorm;
     x(2) *= recipNorm;
     x(3) *= recipNorm;
 
-    // Normalise quaternion2
+    // Normalise quaternion of IMU 2 (shank)
     recipNorm = invSqrt(x(7) * x(7) + x(8) * x(8) + x(9) * x(9) + x(10) * x(10));
     x(7)  *= recipNorm;
     x(8)  *= recipNorm;
     x(9)  *= recipNorm;
     x(10) *= recipNorm;
 
+
     // Measurement Update
 
+    // calculate magnitude of measured accelerations
+    float a1 = sqrt(*ax1 * *ax1 + *ay1 * *ay1 + *az1 * *az1);
+    float a2 = sqrt(*ax2 * *ax2 + *ay2 * *ay2 + *az2 * *az2);
+
+    // check if external accelerations affect the acceleration measurements 
+    if ( (0.1*G > fabs(a1-G)) || (0.1*G > fabs(a2-G)) ) { // if only small external accelerations occur, perform the measurement update with the measured accelerations
+      z << *ax1 / a1, *ay1 / a1, *az1 / a1, *ax2 / a2, *ay2 / a2, *az2 / a2, *psi;
+    }
+    else {  // avoid measurement update of acceleration by providing prediction of acceleration as measurement
+      z << 2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
+           2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
+           *psi;
+    }
+
+    // calculate the relative quaternion between IMU1 (foothold) and IMU2 (shank), q1*inv(q2) = qr
     float q0r = x(0)*x(7) + x(1)*x(8) + x(2)*x(9) + x(3)*x(10);
     float q1r = -x(0)*x(8) + x(1)*x(7) + x(2)*x(10) - x(3)*x(9);
     float q2r = -x(0)*x(9) - x(1)*x(10) + x(2)*x(7) + x(3)*x(8);
     float q3r = -x(0)*x(10) + x(1)*x(9) - x(2)*x(8) + x(3)*x(7);
     
+    // predict the measurements, for acceleration z direction rotated with quaternion z_q = inv(q)*z_w*q, for angle psi of qr
+    h <<  2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
+          2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
+          -atan2(2*(q0r*q3r+q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
+          
+    // calculate products nexessary to compute the linearized jacobian matrix H
     float pr  =  q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r;
     float p1  =  x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3);
     float p2  =  x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10);
@@ -145,7 +172,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     float f2_0312  = x(7)*x(10) +  x(8)*x(9);
     float f2_03_12 = x(7)*x(10) -  x(8)*x(9);
     float f2_02_13 =  x(7)*x(9) - x(8)*x(10);
-    float f2_0123  =  x(7)*x(8) + x(9)*x(10); 
+    float f2_0123  =  x(7)*x(8) + x(9)*x(10);
 
     float d01 = 4*( 2*f2_02_13*x(2) + 2*f2_0312*x(3) + p2*x(0))*fr_0312 + 2*( 2*f2_0123*x(2) + 2*f2_03_12*x(0) - p2_0_12_3*x(3))*pr;
     float d11 = 4*(-2*f2_02_13*x(3) + 2*f2_0312*x(2) + p2*x(1))*fr_0312 + 2*(-2*f2_0123*x(3) + 2*f2_03_12*x(1) - p2_0_12_3*x(2))*pr;
@@ -159,6 +186,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     
     float no = 4*fr_0312*fr_0312 + pr*pr;
 
+    // calculate linearized jacobian matrix H = d ([ inv(q1)*z_w*q1, inv(q2)*z_w*q2, -atan( 2*(q0r*q3r+q1r*q2r)/(q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r) ) ]) / dx_k
     H << -2*x(2),  2*x(3), -2*x(0),  2*x(1), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
           2*x(1),  2*x(0),  2*x(3),  2*x(2), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
           2*x(0), -2*x(1), -2*x(2),  2*x(3), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
@@ -167,28 +195,23 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
                0,       0,       0,       0, 0, 0, 0,  2*x(7), -2*x(8), -2*x(9), 2*x(10), 0, 0, 0,
           d01/no,  d11/no,  d21/no,  d31/no, 0, 0, 0,  d02/no,  d12/no,  d22/no,  d32/no, 0, 0, 0;
 
+    // calculate the Kalman gain matrix K
     K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
-
-    float a1 = sqrt(*ax1 * *ax1 + *ay1 * *ay1 + *az1 * *az1);
-    float a2 = sqrt(*ax2 * *ax2 + *ay2 * *ay2 + *az2 * *az2);
-    z << *ax1 / a1, *ay1 / a1, *az1 / a1, *ax2 / a2, *ay2 / a2, *az2 / a2, *psi;
-    h <<  2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
-          2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
-          -atan2(2*(q0r*q3r+q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
-          //-atan2(2*(x(3)*x(0) + x(1)*x(2)), x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3)) + atan2(2*(x(10)*x(7) + x(8)*x(9)), x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10));
-
+    
+    // update states with measurement update
     x = x + K * (z-h);
 
+    // update the covariance matrix with measurement update
     P = (I - K * H) * P;
 
-    // Normalise quaternion1
+    // Normalise quaternion of IMU 1 (foothold)
     recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
     x(0) *= recipNorm;
     x(1) *= recipNorm;
     x(2) *= recipNorm;
     x(3) *= recipNorm;
 
-    // Normalise quaternion2
+    // Normalise quaternion of IMU 2 (shank)
     recipNorm = invSqrt(x(7) * x(7) + x(8) * x(8) + x(9) * x(9) + x(10) * x(10));
     x(7)  *= recipNorm;
     x(8)  *= recipNorm;
