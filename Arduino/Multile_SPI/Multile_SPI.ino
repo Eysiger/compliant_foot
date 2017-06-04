@@ -44,7 +44,7 @@ AS5048A ENCODER(15);
 //AHRS AHRSShank(-0.0180, -0.0073, 0.0015);
 AHRS AHRS(-0.0084, 0.0056, -0.0052, -0.0180, -0.0073, 0.0015);
 
-const int number = 1;
+const int number = 1000;
 float ax1[number], ay1[number], az1[number], gx1[number], gy1[number], gz1[number], t1[number];
 float ax2[number], ay2[number], az2[number], gx2[number], gy2[number], gz2[number], t2[number];
 float q01[number], q11[number], q21[number], q31[number];
@@ -89,7 +89,7 @@ void setup() {
   
   //define zero position of encoder
   //int state = ENCODER.setZero();
-  uint16_t zeroPos = 3980;
+  uint16_t zeroPos = 12172;
   int state = ENCODER.setZeroPos(&zeroPos);
   Serial.print("Encoder set to zero; successfully (1) or not (0): ");
   Serial.println(state);
@@ -281,18 +281,18 @@ void loop() {
   
   Eigen::MatrixXf L(14,6);
   L <<       Quat1.block<4,3>(0,1), Eigen::MatrixXf::Zero(4,3),
-                           0.1,   0,   0,                0,   0,   0, 
-                             0, 0.1,   0,                0,   0,   0,
-                             0,   0, 0.1,                0,   0,   0,
+                           0,   0,   0,                0,   0,   0, 
+                             0, 0,   0,                0,   0,   0,
+                             0,   0, 0,                0,   0,   0,
               Eigen::MatrixXf::Zero(4,3),      Quat2.block<4,3>(0,1),
-                             0,   0,   0,              0.1,   0,   0,
-                             0,   0,   0,                0, 0.1,   0,
-                             0,   0,   0,                0,   0, 0.1;
+                             0,   0,   0,              0,   0,   0,
+                             0,   0,   0,                0, 0,   0,
+                             0,   0,   0,                0,   0, 0;
                              
-//   Serial.println("Quat146: ");
+//   Serial.println("L: ");
 //   for (int j=0; j<14; j++) {
 //    for (int k=0; k<6; k++) {
-//     Serial.print(Quat146(j,k));
+//     Serial.print(L(j,k));
 //     Serial.print("\t");
 //    }
 //    Serial.println("");
@@ -310,17 +310,47 @@ void loop() {
 //   }
 
    // Measurement Update
-   float d01 = -2*( x(0)*x(0)*x(3) + 2*x(0)*x(1)*x(2) - x(1)*x(1)*x(3) + x(2)*x(2)*x(3) + x(3)*x(3)*x(3));
-   float d11 = -2*(-x(0)*x(0)*x(2) + 2*x(0)*x(1)*x(3) + x(1)*x(1)*x(2) + x(2)*x(2)*x(2) + x(2)*x(3)*x(3));
-   float d21 =  2*( x(0)*x(0)*x(1) + 2*x(0)*x(2)*x(3) + x(1)*x(1)*x(1) + x(2)*x(2)*x(1) - x(1)*x(3)*x(3));
-   float d31 =  2*( x(0)*x(0)*x(0) + 2*x(1)*x(2)*x(3) + x(1)*x(1)*x(0) - x(2)*x(2)*x(0) + x(0)*x(3)*x(3));
-   float no1 = (x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3)) * (x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3));
+    float q0r = x(0)*x(7) + x(1)*x(8) + x(2)*x(9) + x(3)*x(10);
+    float q1r = -x(0)*x(8) + x(1)*x(7) + x(2)*x(10) - x(3)*x(9);
+    float q2r = -x(0)*x(9) - x(1)*x(10) + x(2)*x(7) + x(3)*x(8);
+    float q3r = -x(0)*x(10) + x(1)*x(9) - x(2)*x(8) + x(3)*x(7);
+    
+    float pr  =  q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r;
+    float p1  =  x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3);
+    float p2  =  x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10);
+    float p2_0_12_3 = x(7)*x(7) - x(8)*x(8) + x(9)*x(9) - x(10)*x(10);
 
-   float d02 = 2*( x(7)*x(7)*x(10) +  2*x(7)*x(8)*x(9) - x(8)*x(8)*x(10) + x(9)*x(9)*x(10) + x(10)*x(10)*x(10));
-   float d12 =  2*(-x(7)*x(7)*x(9) + 2*x(7)*x(8)*x(10) +  x(8)*x(8)*x(9) +  x(9)*x(9)*x(9) +  x(9)*x(10)*x(10));
-   float d22 = -2*( x(7)*x(7)*x(8) + 2*x(7)*x(9)*x(10) +  x(8)*x(8)*x(8) +  x(9)*x(9)*x(8) -  x(8)*x(10)*x(10));
-   float d32 = -2*( x(7)*x(7)*x(7) + 2*x(8)*x(9)*x(10) +  x(8)*x(8)*x(7) -  x(9)*x(9)*x(7) +  x(7)*x(10)*x(10));
-   float no2 = (x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10)) * (x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10));
+    float fr_0312  =    q0r*q3r +    q1r*q2r; 
+    float f1_0312  =  x(0)*x(3) +  x(1)*x(2);
+    float f1_02_13 =  x(0)*x(2) -  x(1)*x(3);
+    float f2_0312  = x(7)*x(10) +  x(8)*x(9);
+    float f2_03_12 = x(7)*x(10) -  x(8)*x(9);
+    float f2_02_13 =  x(7)*x(9) - x(8)*x(10);
+    float f2_0123  =  x(7)*x(8) + x(9)*x(10); 
+
+    float d01 = 4*( 2*f2_02_13*x(2) + 2*f2_0312*x(3) + p2*x(0))*fr_0312 + 2*( 2*f2_0123*x(2) + 2*f2_03_12*x(0) - p2_0_12_3*x(3))*pr;
+    float d11 = 4*(-2*f2_02_13*x(3) + 2*f2_0312*x(2) + p2*x(1))*fr_0312 + 2*(-2*f2_0123*x(3) + 2*f2_03_12*x(1) - p2_0_12_3*x(2))*pr;
+    float d21 = 4*( 2*f2_02_13*x(0) + 2*f2_0312*x(1) - p2*x(2))*fr_0312 + 2*( 2*f2_0123*x(0) - 2*f2_03_12*x(2) - p2_0_12_3*x(1))*pr;
+    float d31 = 4*(-2*f2_02_13*x(1) + 2*f2_0312*x(0) - p2*x(3))*fr_0312 + 2*(-2*f2_0123*x(1) - 2*f2_03_12*x(3) - p2_0_12_3*x(0))*pr;
+    
+    float d02 = 4*(  2*f1_02_13*x(9) + 2*f1_0312*x(10) +  p1*x(7))*fr_0312 + 2*( 2*f1_02_13*x(8) -  2*f1_0312*x(7) + p1*x(10))*pr;
+    float d12 = 4*(-2*f1_02_13*x(10) +  2*f1_0312*x(9) +  p1*x(8))*fr_0312 + 2*( 2*f1_02_13*x(7) +  2*f1_0312*x(8) - p1*x(9))*pr;
+    float d22 = 4*(  2*f1_02_13*x(7) +  2*f1_0312*x(8) -  p1*x(9))*fr_0312 + 2*(2*f1_02_13*x(10) -  2*f1_0312*x(9) - p1*x(8))*pr;
+    float d32 = 4*( -2*f1_02_13*x(8) +  2*f1_0312*x(7) - p1*x(10))*fr_0312 + 2*( 2*f1_02_13*x(9) + 2*f1_0312*x(10) + p1*x(7))*pr;
+    
+    float no = 4*fr_0312*fr_0312 + pr*pr;
+    
+//   float d01 =  2*( x(0)*x(0)*x(3) + 2*x(0)*x(1)*x(2) - x(1)*x(1)*x(3) + x(2)*x(2)*x(3) + x(3)*x(3)*x(3));
+//   float d11 =  2*(-x(0)*x(0)*x(2) + 2*x(0)*x(1)*x(3) + x(1)*x(1)*x(2) + x(2)*x(2)*x(2) + x(2)*x(3)*x(3));
+//   float d21 = -2*( x(0)*x(0)*x(1) + 2*x(0)*x(2)*x(3) + x(1)*x(1)*x(1) + x(2)*x(2)*x(1) - x(1)*x(3)*x(3));
+//   float d31 = -2*( x(0)*x(0)*x(0) + 2*x(1)*x(2)*x(3) + x(1)*x(1)*x(0) - x(2)*x(2)*x(0) + x(0)*x(3)*x(3));
+//   float no1 =  4*(x(0)*x(3) + x(1)*x(2))*(x(0)*x(3) + x(1)*x(2)) + (x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3)) * (x(0)*x(0) + x(1)*x(1) - x(2)*x(2) - x(3)*x(3));
+//
+//   float d02 = -2*( x(7)*x(7)*x(10) +  2*x(7)*x(8)*x(9) - x(8)*x(8)*x(10) + x(9)*x(9)*x(10) + x(10)*x(10)*x(10));
+//   float d12 =  -2*(-x(7)*x(7)*x(9) + 2*x(7)*x(8)*x(10) +  x(8)*x(8)*x(9) +  x(9)*x(9)*x(9) +  x(9)*x(10)*x(10));
+//   float d22 =   2*( x(7)*x(7)*x(8) + 2*x(7)*x(9)*x(10) +  x(8)*x(8)*x(8) +  x(9)*x(9)*x(8) -  x(8)*x(10)*x(10));
+//   float d32 =   2*( x(7)*x(7)*x(7) + 2*x(8)*x(9)*x(10) +  x(8)*x(8)*x(7) -  x(9)*x(9)*x(7) +  x(7)*x(10)*x(10));
+//   float no2 = 4*(x(7)*x(10) + x(8)*x(9))*(x(7)*x(10) + x(8)*x(9)) + (x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10)) * (x(7)*x(7) + x(8)*x(8) - x(9)*x(9) - x(10)*x(10));
    
    H << -2*x(2),  2*x(3), -2*x(0),  2*x(1), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
          2*x(1),  2*x(0),  2*x(3),  2*x(2), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
@@ -328,7 +358,9 @@ void loop() {
               0,       0,       0,       0, 0, 0, 0, -2*x(9), 2*x(10), -2*x(7),  2*x(8), 0, 0, 0,
               0,       0,       0,       0, 0, 0, 0,  2*x(8),  2*x(7), 2*x(10),  2*x(9), 0, 0, 0,
               0,       0,       0,       0, 0, 0, 0,  2*x(7), -2*x(8), -2*x(9), 2*x(10), 0, 0, 0,
-        d01/no1, d11/no1, d21/no1, d31/no1, 0, 0, 0, d02/no2, d12/no2, d22/no2, d32/no2, 0, 0, 0;
+              //0,       0,       0,       0, 0, 0, 0,       0,       0,       0,       0, 0, 0, 0;
+         d01/no,  d11/no,  d21/no,  d31/no, 0, 0, 0,  d02/no,  d12/no,  d22/no,  d32/no, 0, 0, 0;      
+        //d01/no1, d11/no1, d21/no1, d31/no1, 0, 0, 0, d02/no2, d12/no2, d22/no2, d32/no2, 0, 0, 0;
         
 //   Serial.println("H: ");
 //   for (int j=0; j<7; j++) {
@@ -366,7 +398,7 @@ void loop() {
    float a2 = sqrt(ax2[i] * ax2[i] + ay2[i] * ay2[i] + az2[i] * az2[i]);
    if (angle[i] > 180) { angle[i] -= 360; }
    angle[i] = angle[i]/180.0f*3.14159265359f;
-   z << ax1[i] / a1, ay1[i] / a1, az1[i] / a1, ax2[i] / a2, ay2[i] / a2, az2[i] / a2, tan(angle[i]);
+   z << ax1[i] / a1, ay1[i] / a1, az1[i] / a1, ax2[i] / a2, ay2[i] / a2, az2[i] / a2, angle[i];
    
 //  Serial.print("a1: ");
 //  Serial.print(ax1[i]);
@@ -386,6 +418,17 @@ void loop() {
 //  Serial.print("\t");
 //  Serial.println(a2);
 
+//  Serial.println("qrel: ");
+//    Serial.print(q0r);
+//    Serial.print("\t");
+//        Serial.print(q1r);
+//    Serial.print("\t");
+//        Serial.print(q2r);
+//    Serial.print("\t");
+//        Serial.print(q3r);
+//    Serial.print("\t");
+//  Serial.println("");
+//
 //  Serial.println("z: ");
 //  for (int j=0; j<7; j++) {
 //    Serial.print(z(j),6);
@@ -396,7 +439,8 @@ void loop() {
    Eigen::VectorXf h(7);
    h << 2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
         2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
-        2*(x(3)*x(0) + x(1)*x(2)) / (x(0)*x(0)+x(1)*x(1)-x(2)*x(2)-x(3)*x(3)) - 2*(x(10)*x(7) + x(8)*x(9)) / (x(7)*x(7)+x(8)*x(8)-x(9)*x(9)-x(10)*x(10));
+        -atan2(2 * (q0r*q3r + q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
+        //-atan2(2*(x(3)*x(0) + x(1)*x(2)), x(0)*x(0)+x(1)*x(1)-x(2)*x(2)-x(3)*x(3)) + atan2(2*(x(10)*x(7) + x(8)*x(9)), x(7)*x(7)+x(8)*x(8)-x(9)*x(9)-x(10)*x(10));
         
 //  Serial.println("h: ");
 //  for (int j=0; j<7; j++) {
@@ -443,12 +487,12 @@ void loop() {
   x(9)  *= recipNorm;
   x(10) *= recipNorm;
   
-  Serial.println("x_post: ");
-  for (int j=0; j<14; j++) {
-    Serial.print(x(j));
-    Serial.print("\t");
-  }
-  Serial.println(""); 
+//  Serial.println("x_post: ");
+//  for (int j=0; j<14; j++) {
+//    Serial.print(x(j));
+//    Serial.print("\t");
+//  }
+//  Serial.println(""); 
 
     q01[i] = x(0);
     q11[i] = x(1);
@@ -472,26 +516,18 @@ void loop() {
   invertQuat(q2, invq2);
   float qrel[4];
   quatMult(q1, invq2, qrel);
-  
-//  float angles[3];
-//  quatToEul(qrel, angles);
-//  angles[1] = 0;
-//  angles[2] = 0;
-//  float qcorr[4];
-//  eulToQuat(angles, qcorr);
-//  float invqcorr[4];
-//  invertQuat(qcorr, invqcorr);
-//  quatMult(qcorr, qrel, qrel);
-  
 
-//  float qyaw[4];
-//  eulToQuat(angles, qyaw);
-//  quatMult(qyaw, qrel, qrel);
+//    Serial.println("qrel: ");
+//  for (int j=0; j<4; j++) {
+//    Serial.print(qrel[j]);
+//    Serial.print("\t");
+//  }
+//  Serial.println(""); 
 
-  serialPrintFloatArr(q1, 4);
+
+  serialPrintFloatArr(qrel, 4);
   Serial.println(""); //line break
-  
-  delay(10);
+  delay(100);
 
   i++;
   if (i == number){
