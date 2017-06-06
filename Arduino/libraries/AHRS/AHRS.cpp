@@ -99,6 +99,9 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
                            0,   0,   0,                0,   0,   0,
                            0,   0,   0,                0,   0,   0;
 
+    // update the covarinace matrix with prediction
+    P = A * P * A.transpose() + 0.25 * L * Q * L.transpose();
+
     // update states with prediction
     x(0) = x(0) + u1(0);
     x(1) = x(1) + u1(1);
@@ -114,9 +117,6 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     //x(11) = x(11);
     //x(12) = x(12);
     //x(13) = x(13);
-
-    // update the covarinace matrix with prediction
-    P = A * P * A.transpose() + 0.25 * L * Q * L.transpose();
 
     // Normalise quaternion of IMU 1 (foothold)
     float recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
@@ -197,12 +197,12 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
 
     // calculate the Kalman gain matrix K
     K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
-    
-    // update states with measurement update
-    x = x + K * (z-h);
 
     // update the covariance matrix with measurement update
     P = (I - K * H) * P;
+
+    // update states with measurement update
+    x = x + K * (z-h);
 
     // Normalise quaternion of IMU 1 (foothold)
     recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
