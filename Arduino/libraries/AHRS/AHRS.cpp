@@ -98,9 +98,17 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
                            0,   0,   0,                0,   0,   0,
                            0,   0,   0,                0,   0,   0,
                            0,   0,   0,                0,   0,   0;
+    LQL << L.block<4,3>(0,0)*Q.block<3,3>(0,0)*(L.block<4,3>(0,0).transpose()), Eigen::MatrixXf::Zero(4,10),
+           Eigen::MatrixXf::Zero(3,14),
+           Eigen::MatrixXf::Zero(4,7),                                          L.block<4,3>(7,3)*Q.block<3,3>(3,3)*(L.block<4,3>(7,3).transpose()), Eigen::MatrixXf::Zero(4,3),
+           Eigen::MatrixXf::Zero(3,14);
+
+    APA << A.block<7,7>(0,0) * P.block<7,7>(0,0) * (A.block<7,7>(0,0).transpose()), A.block<7,7>(0,0) * P.block<7,7>(0,7) * (A.block<7,7>(7,7).transpose()),
+           A.block<7,7>(7,7) * P.block<7,7>(7,0) * (A.block<7,7>(0,0).transpose()), A.block<7,7>(7,7) * P.block<7,7>(7,7) * (A.block<7,7>(7,7).transpose());
 
     // update the covarinace matrix with prediction
-    P = A * P * A.transpose() + 0.25 * L * Q * L.transpose();
+    // P = A * P * A.transpose() + 0.25 * L * Q * L.transpose();
+    P = APA + 0.25 * LQL;
 
     // update states with prediction
     x(0) = x(0) + u1(0);
