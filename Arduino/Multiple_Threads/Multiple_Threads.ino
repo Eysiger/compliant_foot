@@ -18,10 +18,14 @@ const int number = 10;
 float ax1[number], ay1[number], az1[number], gx1[number], gy1[number], gz1[number], t1[number];
 float ax2[number], ay2[number], az2[number], gx2[number], gy2[number], gz2[number], t2[number];
 float angle[number];
+float tax1, tay1, taz1, tgx1, tgy1, tgz1, tax2, tay2, taz2, tgx2, tgy2, tgz2, tangle;
 int beginStatus1;
 int beginStatus2;
 int beginStatus3;
 int i = 0;
+int count = 10;
+int y = 0;
+int z = 0;
 bool eval = false;
 unsigned long stime;
 unsigned long ctime;
@@ -30,15 +34,15 @@ float median(float daArray[]) {
     // Allocate an array of the same size and sort it.
     int iSize = sizeof(daArray);
     float* dpSorted = new float[iSize];
-    for (int i = 0; i < iSize; ++i) {
-        dpSorted[i] = daArray[i];
+    for (int j = 0; j < iSize; ++j) {
+        dpSorted[j] = daArray[j];
     }
-    for (int i = iSize - 1; i > 0; --i) {
-        for (int j = 0; j < i; ++j) {
-            if (dpSorted[j] > dpSorted[j+1]) {
-                float dTemp = dpSorted[j];
-                dpSorted[j] = dpSorted[j+1];
-                dpSorted[j+1] = dTemp;
+    for (int j = iSize - 1; j > 0; --j) {
+        for (int k = 0; k < j; ++k) {
+            if (dpSorted[k] > dpSorted[k+1]) {
+                float dTemp = dpSorted[k];
+                dpSorted[k] = dpSorted[k+1];
+                dpSorted[k+1] = dTemp;
             }
         }
     }
@@ -52,6 +56,15 @@ float median(float daArray[]) {
     }
     delete [] dpSorted;
     return dMedian;
+}
+
+float mean(float daArray[]) {
+    int iSize = sizeof(daArray);
+    float sum = 0.0;
+    for (int j = 0; j < iSize; ++j) {
+        sum += daArray[j];
+    }
+    return sum/iSize;
 }
 
 void sensorReadout() {
@@ -83,7 +96,7 @@ void sensorReadout() {
     }
     if(beginStatus3 < 0) {
       threads.delay(1000);
-      Serial.println("IENCODER initialization unsuccessful");
+      Serial.println("ENCODER initialization unsuccessful");
       Serial.println("Check ENCODER wiring or try cycling power");
       threads.delay(1000);
     }
@@ -93,17 +106,25 @@ void sensorReadout() {
       //printData3();
     }
     //Serial.printf("finished %d \n",i);
-    //threads.delayMicroseconds(150);
+    //delayMicroseconds(150);
+  
     i++;
     if(i == number) {
-      stime = micros() - stime;
-      float rate = float(number)/stime*1000000;
-//      Serial.print("sensor rate [Hz]: ");
-//      Serial.println(rate);
+      // READOUT FORCE SENSOR
+      
       eval = true;
       i = 0;
-      stime = micros();
     }
+    y++;
+    if (y == count) {
+      stime = micros() - stime;
+      float rate = float(count)/stime*1000000;
+//      Serial.print("sensor rate [Hz]: ");
+//      Serial.println(rate);
+      stime = micros();
+      
+      y = 0;
+    }    
   }
 }
 
@@ -131,7 +152,7 @@ void setup() {
   Serial.print("Encoder set to zero; successfully (1) or not (0): ");
   Serial.println(state);
   
-  threads.setSliceMillis(1);
+  threads.setSliceMicros(250);
   stime = micros();
   threads.addThread(sensorReadout);
   ctime = micros();
@@ -142,26 +163,26 @@ void loop() {
     eval = false;
   }
   else {
-    threads.delay(2);
+    threads.delay(1);
   }
     
   float q1[4];
   float q2[4];
-  float tax1 = median(ax1);
-  float tay1 = median(ay1);
-  float taz1 = median(az1);
-  float tgx1 = median(gx1);
-  float tgy1 = median(gy1);
-  float tgz1 = median(gz1);
-  float tax2 = median(ax2);
-  float tay2 = median(ay2);
-  float taz2 = median(az2);
-  float tgx2 = median(gx2);
-  float tgy2 = median(gy2);
-  float tgz2 = median(gz2);
-  float tangle = median(angle);
-  if (tangle > 180) { tangle -= 360; }
-  tangle = tangle/180.0f*3.14159265359f;
+  tax1 = median(ax1);
+  tay1 = median(ay1);
+  taz1 = median(az1);
+  tgx1 = mean(gx1);
+  tgy1 = mean(gy1);
+  tgz1 = mean(gz1);
+  tax2 = median(ax2);
+  tay2 = median(ay2);
+  taz2 = median(az2);
+  tgx2 = mean(gx2);
+  tgy2 = mean(gy2);
+  tgz2 = mean(gz2);
+  float tempangle = median(angle);
+  if (tempangle > 180) { tempangle -= 360; }
+  tangle = tempangle/180.0f*3.14159265359f;
   
   AHRS.getQEKF(q1, q2, &tax1, &tay1, &taz1, &tgx1, &tgy1, &tgz1, &tax2, &tay2, &taz2, &tgx2, &tgy2, &tgz2, &tangle);
 
@@ -173,43 +194,15 @@ void loop() {
   serialPrintFloatArr(qrel, 4);
   Serial.println(""); //line break
   delay(100);
-
-//  ctime = micros() - ctime;
-//  float rate = 1000000.0f/ctime;
-//  Serial.print("calc rate [Hz]: ");
-//  Serial.println(rate);
-//  ctime = micros();
-
-//  int commas = 6;
-//  for (int j=0; j<number; j++) {
-//      Serial.print(ax1[j],commas);
-//      Serial.print("\t");
-//      Serial.print(ay1[j],commas);
-//      Serial.print("\t");
-//      Serial.print(az1[j],commas);
-//      Serial.print("\t");
-//      Serial.print(gx1[j],commas);
-//      Serial.print("\t");
-//      Serial.print(gy1[j],commas);
-//      Serial.print("\t");
-//      Serial.print(gz1[j],commas);
-//      Serial.print("\t");
-//
-//      Serial.print(ax2[j],commas);
-//      Serial.print("\t");
-//      Serial.print(ay2[j],commas);
-//      Serial.print("\t");
-//      Serial.print(az2[j],commas);
-//      Serial.print("\t");
-//      Serial.print(gx2[j],commas);
-//      Serial.print("\t");
-//      Serial.print(gy2[j],commas);
-//      Serial.print("\t");
-//      Serial.print(gz2[j],commas);
-//      Serial.print("\t");
-//
-//      Serial.println(angle[j],commas);
-//  }
+  z++;
+  if (z == count/10) {
+    ctime = micros() - ctime;
+    float rate = float(count)/10*1000000.0f/ctime;
+//    Serial.print("calc rate [Hz]: ");
+//    Serial.println(rate);
+    ctime = micros();
+    z = 0;
+  }
 //    Serial.print(tax1,commas);
 //    Serial.print("\t");
 //    Serial.print(tay1,commas);
