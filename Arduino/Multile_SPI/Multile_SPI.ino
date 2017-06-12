@@ -37,9 +37,9 @@ const int PinB = 10;
 const int PinC = 15;
 
 // an ICM20608G object with the ICM-20608-G sensor on Teensy Chip Select pin 10 & 9
-ICM20608G IMUFoot(10);
-ICM20608G IMUShank(9);
-AS5048A ENCODER(15);
+ICM20608G IMUFoot(PinB);
+ICM20608G IMUShank(PinA);
+AS5048A ENCODER(PinC);
 //AHRS AHRSFoot(-0.0084, 0.0056, -0.0052);
 //AHRS AHRSShank(-0.0180, -0.0073, 0.0015);
 AHRS AHRS(-0.0084, 0.0056, -0.0052, -0.0180, -0.0073, 0.0015);
@@ -64,6 +64,21 @@ Eigen::MatrixXf K(14,7);
 Eigen::MatrixXf P(14,14);
 unsigned long lastUpdate, now1;
 Eigen::VectorXf x(14);
+Eigen::MatrixXf Quat2(4,4);
+Eigen::MatrixXf Quat1(4,4);
+Eigen::VectorXf u1(4);
+Eigen::VectorXf omega1(4);
+Eigen::VectorXf bias1(4);
+Eigen::VectorXf u2(4);
+Eigen::VectorXf omega2(4);
+Eigen::VectorXf bias2(4);
+Eigen::MatrixXf L(14,6);
+Eigen::MatrixXf LQL(14,14);
+Eigen::MatrixXf APA(14,14);
+Eigen::VectorXf z(7);
+Eigen::VectorXf h(7);
+Eigen::MatrixXf I = Eigen::MatrixXf::Identity(14,14);
+const float G = 9.807f;
 
 void setup() {
   // serial to display data
@@ -190,10 +205,38 @@ void loop() {
   }
 
   // Prediction
+  Serial.print("start: ");
+  Serial.println(micros() - stime);
+  
   now1 = micros();
   float sampleTime = (now1 - lastUpdate) / 1000000.0;
 //  Serial.println(sampleTime,6);
   lastUpdate = now1;
+ 
+  Quat1 << x(0), -x(1), -x(2), -x(3), 
+          x(1),  x(0), -x(3),  x(2), 
+          x(2),  x(3),  x(0), -x(1), 
+          x(3), -x(2),  x(1),  x(0);
+          
+  Quat2 << x(7), -x(8),  -x(9), -x(10), 
+           x(8),  x(7), -x(10),   x(9), 
+           x(9), x(10),   x(7),  -x(8), 
+          x(10), -x(9),   x(8),   x(7);
+          
+  Serial.print("after Quat: ");
+  Serial.println(micros() - stime);
+
+  omega1 << 0, gx1[i], gy1[i], gz1[i];
+  bias1 << 0, x(4), x(5), x(6);
+  u1 = 0.5 * Quat1 * (omega1 - bias1) * sampleTime;
+
+  omega2 << 0, gx2[i], gy2[i], gz2[i];
+  bias2 << 0, x(11), x(12), x(13);
+  u2 = 0.5 * Quat2 * (omega2 - bias2) * sampleTime;
+
+  Serial.print("after u: ");
+  Serial.println(micros() - stime);
+
   float t = sampleTime / 2.0;
   A <<       1,  t*x(4),  t*x(5),  t*x(6),  t*x(1),  t*x(2),  t*x(3),        0,        0,        0,        0,        0,        0,        0,
        -t*x(4),       1, -t*x(6),  t*x(5), -t*x(0),  t*x(3), -t*x(2),        0,        0,        0,        0,        0,        0,        0,
@@ -209,86 +252,18 @@ void loop() {
              0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        1,        0,        0,
              0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        1,        0,
              0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        0,        1;
-       
-  Eigen::MatrixXf Quat1(4,4);
-  Quat1 << x(0), -x(1), -x(2), -x(3), 
-          x(1),  x(0), -x(3),  x(2), 
-          x(2),  x(3),  x(0), -x(1), 
-          x(3), -x(2),  x(1),  x(0);
 
-  Eigen::VectorXf u1(4);
-  Eigen::VectorXf omega1(4);
-  omega1 << 0, gx1[i], gy1[i], gz1[i];
-  u1 = 0.5 * Quat1 * omega1 * sampleTime;
-
-  Eigen::VectorXf b1(4);
-  Eigen::VectorXf bias1(4);
-  bias1 << 0, x(4), x(5), x(6);
-  b1 = 0.5 * Quat1 * bias1 * sampleTime;
-
-  x(0) = x(0) - b1(0) + u1(0);
-  x(1) = x(1) - b1(1) + u1(1);
-  x(2) = x(2) - b1(2) + u1(2);
-  x(3) = x(3) - b1(3) + u1(3);
-  //x(4) = x(4);
-  //x(5) = x(5);
-  //x(6) = x(6);
-
-  // Normalise quaternion1
-  float recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
-  x(0) *= recipNorm;
-  x(1) *= recipNorm;
-  x(2) *= recipNorm;
-  x(3) *= recipNorm;
-
-  Eigen::MatrixXf Quat2(4,4);
-  Quat2 << x(7), -x(8),  -x(9), -x(10), 
-           x(8),  x(7), -x(10),   x(9), 
-           x(9), x(10),   x(7),  -x(8), 
-          x(10), -x(9),   x(8),   x(7);
-
-  Eigen::VectorXf u2(4);
-  Eigen::VectorXf omega2(4);
-  omega2 << 0, gx2[i], gy2[i], gz2[i];
-  u2 = 0.5 * Quat2 * omega2 * sampleTime;
-
-  Eigen::VectorXf b2(4);
-  Eigen::VectorXf bias2(4);
-  bias2 << 0, x(11), x(12), x(13);
-  b2 = 0.5 * Quat2 * bias2 * sampleTime;
-
-  x(7)  =  x(7) - b2(0) + u2(0);
-  x(8)  =  x(8) - b2(1) + u2(1);
-  x(9)  =  x(9) - b2(2) + u2(2);
-  x(10) = x(10) - b2(3) + u2(3);
-  //x(11) = x(11);
-  //x(12) = x(12);
-  //x(13) = x(13);
-
-  // Normalise quaternion2
-  recipNorm = invSqrt(x(7) * x(7) + x(8) * x(8) + x(9) * x(9) + x(10) * x(10));
-  x(7)  *= recipNorm;
-  x(8)  *= recipNorm;
-  x(9)  *= recipNorm;
-  x(10) *= recipNorm;
-
-//  Serial.println("x_prio: ");
-//  for (int j=0; j<14; j++) {
-//    Serial.print(x(j));
-//    Serial.print("\t");
-//  }
-//  Serial.println("");
+  Serial.print("after A: ");
+  Serial.println(micros() - stime);
   
-  Eigen::MatrixXf L(14,6);
-  L <<       Quat1.block<4,3>(0,1), Eigen::MatrixXf::Zero(4,3),
-                           0,   0,   0,                0,   0,   0, 
-                             0, 0,   0,                0,   0,   0,
-                             0,   0, 0,                0,   0,   0,
-              Eigen::MatrixXf::Zero(4,3),      Quat2.block<4,3>(0,1),
-                             0,   0,   0,              0,   0,   0,
-                             0,   0,   0,                0, 0,   0,
-                             0,   0,   0,                0,   0, 0;
-                             
+  LQL <<         Quat1.block<4,3>(0,1)*Q.block<3,3>(0,0)*(Quat1.block<4,3>(0,1).transpose()), Eigen::MatrixXf::Zero(4,10),
+                           Eigen::MatrixXf::Zero(3,14),
+            Eigen::MatrixXf::Zero(4,7),      Quat2.block<4,3>(0,1)*Q.block<3,3>(3,3)*(Quat2.block<4,3>(0,1).transpose()), Eigen::MatrixXf::Zero(4,3),
+                          Eigen::MatrixXf::Zero(3,14);
+
+  Serial.print("after L: ");
+  Serial.println(micros() - stime);
+  
 //   Serial.println("L: ");
 //   for (int j=0; j<14; j++) {
 //    for (int k=0; k<6; k++) {
@@ -298,7 +273,13 @@ void loop() {
 //    Serial.println("");
 //   }
 
-  P = A * P * A.transpose() + 0.25 * L * Q * L.transpose();
+  APA << A.block<7,7>(0,0) * P.block<7,7>(0,0) * (A.block<7,7>(0,0).transpose()), Eigen::MatrixXf::Zero(7,7),
+         Eigen::MatrixXf::Zero(7,7),                                              A.block<7,7>(7,7) * P.block<7,7>(7,7) * (A.block<7,7>(7,7).transpose());
+  
+  P = APA + 0.25 * LQL; //* Q * L.transpose();
+
+  Serial.print("after P_prio: ");
+  Serial.println(micros() - stime);
 
 //   Serial.println("P_prio: ");
 //   for (int j=0; j<14; j++) {
@@ -308,6 +289,49 @@ void loop() {
 //    }
 //    Serial.println("");
 //   }
+
+ x(0) = x(0) + u1(0);
+  x(1) = x(1) + u1(1);
+  x(2) = x(2) + u1(2);
+  x(3) = x(3) + u1(3);
+  //x(4) = x(4);
+  //x(5) = x(5);
+  //x(6) = x(6);
+
+  x(7)  =  x(7) + u2(0);
+  x(8)  =  x(8) + u2(1);
+  x(9)  =  x(9) + u2(2);
+  x(10) = x(10) + u2(3);
+  //x(11) = x(11);
+  //x(12) = x(12);
+  //x(13) = x(13);
+
+//  Serial.println("x_prio: ");
+//  for (int j=0; j<14; j++) {
+//    Serial.print(x(j));
+//    Serial.print("\t");
+//  }
+//  Serial.println("");
+
+  Serial.print("after x_prio: ");
+  Serial.println(micros() - stime);
+
+  // Normalise quaternion1
+  float recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
+  x(0) *= recipNorm;
+  x(1) *= recipNorm;
+  x(2) *= recipNorm;
+  x(3) *= recipNorm;
+
+  // Normalise quaternion2
+  recipNorm = invSqrt(x(7) * x(7) + x(8) * x(8) + x(9) * x(9) + x(10) * x(10));
+  x(7)  *= recipNorm;
+  x(8)  *= recipNorm;
+  x(9)  *= recipNorm;
+  x(10) *= recipNorm;
+
+  Serial.print("after normalization: ");
+  Serial.println(micros() - stime);
 
    // Measurement Update
     float q0r = x(0)*x(7) + x(1)*x(8) + x(2)*x(9) + x(3)*x(10);
@@ -361,7 +385,10 @@ void loop() {
               //0,       0,       0,       0, 0, 0, 0,       0,       0,       0,       0, 0, 0, 0;
          d01/no,  d11/no,  d21/no,  d31/no, 0, 0, 0,  d02/no,  d12/no,  d22/no,  d32/no, 0, 0, 0;      
         //d01/no1, d11/no1, d21/no1, d31/no1, 0, 0, 0, d02/no2, d12/no2, d22/no2, d32/no2, 0, 0, 0;
-        
+
+  Serial.print("after H: ");
+  Serial.println(micros() - stime);
+  
 //   Serial.println("H: ");
 //   for (int j=0; j<7; j++) {
 //    for (int k=0; k<14; k++) {
@@ -371,9 +398,10 @@ void loop() {
 //    Serial.println("");
 //   }
    
-   Eigen::MatrixXf mult(7,7);
-   mult = H * P * H.transpose() + R;
    K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
+
+  Serial.print("after K: ");
+  Serial.println(micros() - stime);
 
 //   Serial.println("mult: ");
 //   for (int j=0; j<7; j++) {
@@ -393,13 +421,22 @@ void loop() {
 //    Serial.println("");
 //   }
    
-   Eigen::VectorXf z(7);
    float a1 = sqrt(ax1[i] * ax1[i] + ay1[i] * ay1[i] + az1[i] * az1[i]);
    float a2 = sqrt(ax2[i] * ax2[i] + ay2[i] * ay2[i] + az2[i] * az2[i]);
    if (angle[i] > 180) { angle[i] -= 360; }
    angle[i] = angle[i]/180.0f*3.14159265359f;
-   z << ax1[i] / a1, ay1[i] / a1, az1[i] / a1, ax2[i] / a2, ay2[i] / a2, az2[i] / a2, angle[i];
+   if ( (0.1*G > fabs(a1-G)) || (0.1*G > fabs(a2-G)) ) {
+     z << ax1[i] / a1, ay1[i] / a1, az1[i] / a1, ax2[i] / a2, ay2[i] / a2, az2[i] / a2, angle[i];
+   }
+   else {
+     z << 2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
+          2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
+          angle[i];
+   }
    
+  Serial.print("after z: ");
+  Serial.println(micros() - stime);
+  
 //  Serial.print("a1: ");
 //  Serial.print(ax1[i]);
 //  Serial.print("\t");
@@ -436,12 +473,14 @@ void loop() {
 //  }
 //  Serial.println("");
   
-   Eigen::VectorXf h(7);
    h << 2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
         2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
         -atan2(2 * (q0r*q3r + q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
         //-atan2(2*(x(3)*x(0) + x(1)*x(2)), x(0)*x(0)+x(1)*x(1)-x(2)*x(2)-x(3)*x(3)) + atan2(2*(x(10)*x(7) + x(8)*x(9)), x(7)*x(7)+x(8)*x(8)-x(9)*x(9)-x(10)*x(10));
-        
+   
+   Serial.print("after h: ");
+   Serial.println(micros() - stime);
+   
 //  Serial.println("h: ");
 //  for (int j=0; j<7; j++) {
 //    Serial.print(h(j),6);
@@ -450,6 +489,9 @@ void loop() {
 //  Serial.println("");
 
    x = x + K * (z-h);
+
+  Serial.print("after x_post: ");
+  Serial.println(micros() - stime);
 
 //   Eigen::VectorXf update(7);
 //   update = K * (z-h);
@@ -461,8 +503,10 @@ void loop() {
 //  }
 //  Serial.println(""); 
 
-   Eigen::MatrixXf I = Eigen::MatrixXf::Identity(14,14);
    P = (I - K * H) * P;
+   
+  Serial.print("after P_post: ");
+  Serial.println(micros() - stime);
 
 //   Serial.println("P_post: ");
 //   for (int j=0; j<14; j++) {
@@ -486,6 +530,9 @@ void loop() {
   x(8)  *= recipNorm;
   x(9)  *= recipNorm;
   x(10) *= recipNorm;
+
+  Serial.print("after normalization: ");
+  Serial.println(micros() - stime);
   
 //  Serial.println("x_post: ");
 //  for (int j=0; j<14; j++) {
@@ -517,6 +564,9 @@ void loop() {
   float qrel[4];
   quatMult(q1, invq2, qrel);
 
+  Serial.print("after qrel: ");
+  Serial.println(micros() - stime);
+
 //    Serial.println("qrel: ");
 //  for (int j=0; j<4; j++) {
 //    Serial.print(qrel[j]);
@@ -525,9 +575,9 @@ void loop() {
 //  Serial.println(""); 
 
 
-  serialPrintFloatArr(qrel, 4);
-  Serial.println(""); //line break
-  delay(100);
+//  serialPrintFloatArr(qrel, 4);
+//  Serial.println(""); //line break
+//  delay(100);
 
   i++;
   if (i == number){
@@ -568,9 +618,9 @@ void loop() {
     }
     USBtime = micros() - USBtime;
       
-//    float rate = float(number)/stime*1000000;
-//    Serial.print("rate [Hz]: ");
-//    Serial.println(rate);
+    float rate = float(number)/stime*1000000;
+    Serial.print("rate [Hz]: ");
+    Serial.println(rate);
 //    float USBrate = float(number)/USBtime*1000000;
 //    Serial.print("USB rate [Hz]: ");
 //    Serial.println(USBrate);
