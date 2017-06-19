@@ -7,7 +7,7 @@ rkaeslin@student.ethz.ch
 
 #include "Contact.h"
 
-Contact::Contact() : contact_(false), detectForceThreshold_(20), accThreshold_(4*9.8), accForceThreshold_(15), removeForceThreshold_(10) {
+Contact::Contact() : contact_(false), detectForceThreshold_(-20), accThreshold_(4*9.8), accForceThreshold_(-15), removeForceThreshold_(-10) {
 	
 }
 
@@ -25,20 +25,20 @@ void Contact::update(float* q1, float* q2, float* ax1, float* ay1, float* az1, f
 
         quatMult(invq2, temp, temp);
         quatMult(temp, q2, temp);
-        if (temp[3] > accZ) {
-            accZ = temp[3];
+        if ( fabs(temp[3]) > accZ) {
+            accZ = fabs(temp[3]);
         }
     }
     if (contact_ == false) {
-        if (forces[3] > detectForceThreshold_) {
+        if (forces[3] < detectForceThreshold_) {
             contact_ = true;
         }
-        else if ( (forces[3] > accForceThreshold_) && (accZ > accThreshold_) ) {
+        else if ( (forces[3] < accForceThreshold_) && (accZ > accThreshold_) ) {
             contact_ = true;
         }
     }
     else {
-        if (forces[3] < removeForceThreshold_) {
+        if (forces[3] > removeForceThreshold_) {
             contact_ = false;
         }
     }
