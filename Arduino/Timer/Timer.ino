@@ -34,7 +34,7 @@ float ax2[number], ay2[number], az2[number], gx2[number], gy2[number], gz2[numbe
 float angle[number];
 float Fx[number], Fy[number], Fz[number], Tx[number], Ty[number], Tz[number];
 float tax1, tay1, taz1, tgx1, tgy1, tgz1, tax2, tay2, taz2, tgx2, tgy2, tgz2, tangle;
-int beginStatus1, beginStatus2, beginStatus3, beginStatus4;
+int beginStatus1, beginStatus2, beginStatus3;
 int i = 0;
 int l = 0;
 
@@ -198,8 +198,8 @@ void sensorReadout() {
     buffer[26] = (uint8_t)now;
     buffer[27] = checksum(buffer, 2, length-2);
     
-//    Serial.write(buffer,length);
-//    Serial.send_now();
+    Serial.write(buffer,length);
+    Serial.send_now();
 
     i = 0;
   }
@@ -218,7 +218,7 @@ void setup() {
   beginStatus1 = IMUFoot.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
   beginStatus2 = IMUShank.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
   beginStatus3 = ENCODER.begin();
-  beginStatus4 = BOTA.begin();
+  BOTA.begin();
 
   IMUFoot.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   IMUShank.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
@@ -269,17 +269,17 @@ void loop() {
   quatMult(invq2, torques, torques);
   quatMult(torques, q2, torques);
 
-  Serial.print(forces[1]);
-  Serial.print("\t");
-  Serial.print(forces[2]);
-  Serial.print("\t");
-  Serial.print(forces[3]);
-  Serial.print("\t");
-  Serial.print(torques[1]);
-  Serial.print("\t");
-  Serial.print(torques[2]);
-  Serial.print("\t");
-  Serial.println(torques[3]);
+//  Serial.print(forces[1]);
+//  Serial.print("\t");
+//  Serial.print(forces[2]);
+//  Serial.print("\t");
+//  Serial.print(forces[3]);
+//  Serial.print("\t");
+//  Serial.print(torques[1]);
+//  Serial.print("\t");
+//  Serial.print(torques[2]);
+//  Serial.print("\t");
+//  Serial.println(torques[3]);
   
   noInterrupts();
   quatMult(q1, invq2, qrel);
