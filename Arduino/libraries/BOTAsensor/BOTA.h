@@ -19,11 +19,11 @@ class BOTA{
     public:
         BOTA(uint8_t TxPin, uint8_t RxPin);
 
-        bool begin();
+        void begin();
 
         bool getForces(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, float* Tz);
 
-        bool setOffset(float Fx, float Fy, float Fz, float Tx, float Ty, float Tz);
+        void setOffset(float Fx, float Fy, float Fz, float Tx, float Ty, float Tz);
         
     private:
     	Eigen::Matrix<float, 6, 6> A;
