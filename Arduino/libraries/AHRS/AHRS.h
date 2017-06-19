@@ -75,4 +75,8 @@ void invertQuat(float q[4], float r[4]);
 void quatToRotMat(float q[4], Eigen::MatrixXf& Rot);
 void rotMatToQuat(Eigen::MatrixXf& Rot, float q[4]);
 
+float median(float array[]);
+float mean(float array[]);
+uint8_t checksum(uint8_t array[], int first, int last);
+
 #endif

@@ -45,6 +45,11 @@ AHRS::AHRS(float bx1, float by1, float bz1, float bx2, float by2, float bz2) {
 }
 
 void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {
+  // calculate magnitude of measured accelerations
+  float a1 = sqrt(*ax1 * *ax1 + *ay1 * *ay1 + *az1 * *az1);
+  float a2 = sqrt(*ax2 * *ax2 + *ay2 * *ay2 + *az2 * *az2);
+
+  //if ( (fabs(a1-G) < G) && (fabs(a2-G) < G) ) {
     // Prediction
     // x_k+1 = x_k + 0.5*Quat(x_k)*(omega-bias)*delta_t
 
@@ -142,13 +147,8 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
 
 
     // Measurement Update
-
-    // calculate magnitude of measured accelerations
-    float a1 = sqrt(*ax1 * *ax1 + *ay1 * *ay1 + *az1 * *az1);
-    float a2 = sqrt(*ax2 * *ax2 + *ay2 * *ay2 + *az2 * *az2);
-
     // check if external accelerations affect the acceleration measurements 
-    if ( (0.1*G > fabs(a1-G)) || (0.1*G > fabs(a2-G)) ) { // if only small external accelerations occur, perform the measurement update with the measured accelerations
+    if ( (fabs(a1-G) < 0.1*G) && (fabs(a2-G) < 0.1*G) ) { // if only small external accelerations occur, perform the measurement update with the measured accelerations
       z << *ax1 / a1, *ay1 / a1, *az1 / a1, *ax2 / a2, *ay2 / a2, *az2 / a2, *psi;
     }
     else {  // avoid measurement update of acceleration by providing prediction of acceleration as measurement
@@ -225,6 +225,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     x(8)  *= recipNorm;
     x(9)  *= recipNorm;
     x(10) *= recipNorm;
+  //}
 }
 
 void AHRS::getQEKF(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {  
@@ -443,4 +444,52 @@ void rotMatToQuat(Eigen::MatrixXf& Rot, float q[4]){
   q[1] = (Rot(1,2)-Rot(2,1))/(4*q[0]);
   q[2] = (Rot(2,0)-Rot(0,2))/(4*q[0]);
   q[3] = (Rot(0,1)-Rot(1,0))/(4*q[0]);
+}
+
+
+float median(float array[]) {
+    // Allocate an array of the same size and sort it.
+    int size = sizeof(array);
+    float* sorted = new float[size];
+    for (int j = 0; j < size; ++j) {
+        sorted[j] = array[j];
+    }
+    for (int j = size - 1; j > 0; --j) {
+        for (int k = 0; k < j; ++k) {
+            if (sorted[k] > sorted[k+1]) {
+                float temp = sorted[k];
+                sorted[k] = sorted[k+1];
+                sorted[k+1] = temp;
+            }
+        }
+    }
+
+    // Middle or average of middle values in the sorted array.
+    float median = 0.0;
+    if ((size % 2) == 0) {
+        median = (sorted[size/2] + sorted[(size/2) - 1])/2.0;
+    } else {
+        median = sorted[size/2];
+    }
+    delete [] sorted;
+    return median;
+}
+
+float mean(float array[]) {
+    int size = sizeof(array);
+    float sum = 0.0;
+    for (int j = 0; j < size; ++j) {
+        sum += array[j];
+    }
+    return sum/size;
+}
+
+uint8_t checksum(uint8_t array[], int first, int last) {
+  int count = 0; 
+  for (int j=first; j<=last; j++) {
+    for (int k=0; k<8; k++) {
+      count += (array[j] >> k) & 0x01;
+    }
+  }
+  return (uint8_t) count;
 }
