@@ -1,10 +1,9 @@
 #include "ICM20608G.h"
 #include "AS5048A.h"
-#include "AHRS.h"
 #include "BOTA.h"
+#include "AHRS.h"
+#include "Contact.h"
 #include "CommunicationUtils.h" // remove later
-
-#define UART Serial1
 
 const int PinIMU1 = 10;
 const int PinIMU2 = 9;
@@ -24,6 +23,9 @@ BOTA BOTA(PinTx, PinRx);
 
 // an AHRS object providing an EKF sensor fusion of two IMUs with an encoder in between (initial values of gyro offsets)
 AHRS AHRS(-0.0231, 0.0092, 0.0048, 0.0112, 0.0206, -0.0082);
+
+// 
+Contact ContactState;
 
 // a timer object for sensor readout at 4kHz
 IntervalTimer fourkHzTimer;
@@ -228,6 +230,12 @@ void setup() {
     Serial.println("Encoder could not be set to zero.");
   }
 
+  BOTA.setOffset(0, 0, 0, 0, 0, 0);
+  
+  ContactState.setDetectForceThreshold(-20);
+  ContactState.setAccAndForceThreshold(4*9.8, -15);
+  ContactState.setRemoveForceThreshold(-10);
+
   fourkHzTimer.begin(sensorReadout, 250);
 }
 
@@ -263,11 +271,11 @@ void loop() {
   float invq2[4];
   invertQuat(q2, invq2);
 
-  quatMult(invq2, forces, forces);
-  quatMult(forces, q2, forces);
-
-  quatMult(invq2, torques, torques);
-  quatMult(torques, q2, torques);
+//  quatMult(invq2, forces, forces);
+//  quatMult(forces, q2, forces);
+//
+//  quatMult(invq2, torques, torques);
+//  quatMult(torques, q2, torques);
 
 //  Serial.print(forces[1]);
 //  Serial.print("\t");
@@ -296,7 +304,8 @@ void loop() {
 //  serialPrintFloatArr(qrel, 4);
 //  Serial.println(""); //line break
 //  delay(100);
+
+  ContactState.update(q1, q2, ax1, ay1, az1, forces, &contact);
   
-  contact = true;
   interrupts();
 }
