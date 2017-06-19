@@ -208,7 +208,7 @@ bool AS5048A::setZero(){
     uint16_t angle;
     if (getAngleCounts(&angle))
     {
-        return setZeroPos(&angle);
+        return setZeroPos(angle);
     }
     else {
         return false;
@@ -216,10 +216,10 @@ bool AS5048A::setZero(){
 }
 
 /* set given position in counts as zero position */
-bool AS5048A::setZeroPos(uint16_t* angle){
+bool AS5048A::setZeroPos(uint16_t angle){
 
-    uint16_t high = ((*angle & 0x3FC0) >> 6) & 0x00FF;
-    uint16_t low = *angle & 0x003F;
+    uint16_t high = ((angle & 0x3FC0) >> 6) & 0x00FF;
+    uint16_t low = angle & 0x003F;
 
     addParity(&high);
     addParity(&low);
@@ -235,7 +235,7 @@ bool AS5048A::setZeroPos(uint16_t* angle){
         return false;
     }
     
-    if(( ((temp[0] & 0x00FF) << 6) | (temp[1] & 0x003F) ) == (*angle & 0x3FFF)) { // check set value
+    if(( ((temp[0] & 0x00FF) << 6) | (temp[1] & 0x003F) ) == (angle & 0x3FFF)) { // check set value
         return true;
     }
     else{
