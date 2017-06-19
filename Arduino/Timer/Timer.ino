@@ -1,6 +1,7 @@
 #include "ICM20608G.h"
 #include "AS5048A.h"
 #include "AHRS.h"
+#include "BOTA.h"
 #include "CommunicationUtils.h" // remove later
 
 #define UART Serial1
@@ -11,12 +12,15 @@ const int PinEnc = 15;
 const int PinTx = 26;
 const int PinRx = 27;
 
-// an ICM20608G object with the ICM-20608-G sensor on Teensy pin provided
+// an ICM20608G object with the ICM-20608-G sensor on Teensy pin (SPI chip select) provided
 ICM20608G IMUFoot(PinIMU1);
 ICM20608G IMUShank(PinIMU2);
 
-// an AS5048A object with the magnetic Encoder AS5048A sensor on Teensy pin provided
+// an AS5048A object with the magnetic Encoder AS5048A sensor on Teensy pin (SPI chip select) provided
 AS5048A ENCODER(PinEnc);
+
+// a BOTA object with the BOTAsystems Force Sensor on Teensy UART pins Tx and Rx provided
+BOTA BOTA(PinTx, PinRx);
 
 // an AHRS object providing an EKF sensor fusion of two IMUs with an encoder in between (initial values of gyro offsets)
 AHRS AHRS(-0.0231, 0.0092, 0.0048, 0.0112, 0.0206, -0.0082);
@@ -28,68 +32,18 @@ const int number = 10;
 float ax1[number], ay1[number], az1[number], gx1[number], gy1[number], gz1[number], t1[number];
 float ax2[number], ay2[number], az2[number], gx2[number], gy2[number], gz2[number], t2[number];
 float angle[number];
+float Fx[number], Fy[number], Fz[number], Tx[number], Ty[number], Tz[number];
 float tax1, tay1, taz1, tgx1, tgy1, tgz1, tax2, tay2, taz2, tgx2, tgy2, tgz2, tangle;
-int beginStatus1, beginStatus2, beginStatus3;
+int beginStatus1, beginStatus2, beginStatus3, beginStatus4;
 int i = 0;
+int l = 0;
 
 float qrel[4];
 bool contact;
-uint16_t forces[3];
-uint16_t torques[3];
+float forces[4];
+float torques[4];
 
-float ex[number], ey[number], ez[number], emx[number], emy[number], emz[number];
-int variable = 0;
-bool started = false;
-int sign = 1;
-float data[6] = {0,0,0,0,0,0};
-int l = 0;
-
-float median(float array[]) {
-    // Allocate an array of the same size and sort it.
-    int size = sizeof(array);
-    float* sorted = new float[size];
-    for (int j = 0; j < size; ++j) {
-        sorted[j] = array[j];
-    }
-    for (int j = size - 1; j > 0; --j) {
-        for (int k = 0; k < j; ++k) {
-            if (sorted[k] > sorted[k+1]) {
-                float temp = sorted[k];
-                sorted[k] = sorted[k+1];
-                sorted[k+1] = temp;
-            }
-        }
-    }
-
-    // Middle or average of middle values in the sorted array.
-    float median = 0.0;
-    if ((size % 2) == 0) {
-        median = (sorted[size/2] + sorted[(size/2) - 1])/2.0;
-    } else {
-        median = sorted[size/2];
-    }
-    delete [] sorted;
-    return median;
-}
-
-float mean(float array[]) {
-    int size = sizeof(array);
-    float sum = 0.0;
-    for (int j = 0; j < size; ++j) {
-        sum += array[j];
-    }
-    return sum/size;
-}
-
-uint8_t checksum(uint8_t array[], int first, int last) {
-  int count = 0; 
-  for (int j=first; j<=last; j++) {
-    for (int k=0; k<8; k++) {
-      count += (array[j] >> k) & 0x01;
-    }
-  }
-  return (uint8_t) count;
-}
+unsigned long stime;
 
 void sensorReadout() {
    if(beginStatus1 < 0) {
@@ -162,6 +116,30 @@ void sensorReadout() {
 
   i++;
 
+  if (i == 1) {
+    // Read-out force sensor
+    //stime = micros();
+    if (BOTA.getForces(&Fx[l], &Fy[l], &Fz[l], &Tx[l], &Ty[l], &Tz[l]) ) {
+//      Serial.print(l);
+//      Serial.print("\t");
+//      Serial.print(Fx[l],6);
+//      Serial.print("\t");
+//      Serial.print(Fy[l],6);
+//      Serial.print("\t");
+//      Serial.print(Fz[l],6);
+//      Serial.print("\t");
+//      Serial.print(Tx[l],6);
+//      Serial.print("\t");
+//      Serial.print(Ty[l],6);
+//      Serial.print("\t");
+//      Serial.println(Tz[l],6);
+      l++;
+      if (l == number) { l = 0; }
+    }
+    //stime = micros() - stime;
+    //Serial.println(stime);
+  }
+
   if(i == number) {
     //WRITE to USB
     int length = 28;
@@ -171,30 +149,45 @@ void sensorReadout() {
     
     if (contact) { buffer[2] = 0x03; }
     else { buffer[2] = 0x00; }
+
+    float offset = 32767;
+
+    float NewtonToIntXY = 50.0;
+    float NewtonToIntZ = 25.0;
+    float NewtonMeterToIntXY = 3000.0;
+    float NewtonMeterToIntZ = 2500.0;
+
+    uint16_t fx = Fx[(l-1+10)%10]*NewtonToIntXY + offset;
+    buffer[3] = (uint8_t)(fx >> 8);
+    buffer[4] = (uint8_t)fx;
+    uint16_t fy = Fy[(l-1+10)%10]*NewtonToIntXY + offset;
+    buffer[5] = (uint8_t)(fy >> 8);
+    buffer[6] = (uint8_t)fy;
+    uint16_t fz = Fz[(l-1+10)%10]*NewtonToIntZ + offset;
+    buffer[7] = (uint8_t)(fz >> 8);
+    buffer[8] = (uint8_t)fz;
+    uint16_t tx = Tx[(l-1+10)%10]*NewtonMeterToIntXY + offset;
+    buffer[9] = (uint8_t)(tx >> 8);
+    buffer[10] = (uint8_t)tx;
+    uint16_t ty = Ty[(l-1+10)%10]*NewtonMeterToIntXY + offset;
+    buffer[11] = (uint8_t)(ty >> 8);
+    buffer[12] = (uint8_t)ty;
+    uint16_t tz = Tz[(l-1+10)%10]*NewtonMeterToIntZ + offset;
+    buffer[13] = (uint8_t)(tz >> 8);
+    buffer[14] = (uint8_t)tz;
+
+    float quatToInt = 32767.5;
     
-    buffer[3] = (uint8_t)(forces[0] >> 8);
-    buffer[4] = (uint8_t)forces[0];
-    buffer[5] = (uint8_t)(forces[1] >> 8);
-    buffer[6] = (uint8_t)forces[1];
-    buffer[7] = (uint8_t)(forces[2] >> 8);
-    buffer[8] = (uint8_t)forces[2];
-    buffer[9] = (uint8_t)(torques[0] >> 8);
-    buffer[10] = (uint8_t)torques[0];
-    buffer[11] = (uint8_t)(torques[1] >> 8);
-    buffer[12] = (uint8_t)torques[1];
-    buffer[13] = (uint8_t)(torques[2] >> 8);
-    buffer[14] = (uint8_t)torques[2];
-    
-    uint16_t q0 = (qrel[0]+1)*32767.5;
+    uint16_t q0 = (qrel[0]+1) * quatToInt;
     buffer[15] = (uint8_t)(q0 >> 8);
     buffer[16] = (uint8_t)q0;
-    uint16_t q1 = (qrel[1]+1)*32767.5;
+    uint16_t q1 = (qrel[1]+1) * quatToInt;
     buffer[17] = (uint8_t)(q1 >> 8);
     buffer[18] = (uint8_t)q1;
-    uint16_t q2 = (qrel[2]+1)*32767.5;
+    uint16_t q2 = (qrel[2]+1) * quatToInt;
     buffer[19] = (uint8_t)(q2 >> 8);
     buffer[20] = (uint8_t)q2;
-    uint16_t q3 = (qrel[3]+1)*32767.5;
+    uint16_t q3 = (qrel[3]+1) * quatToInt;
     buffer[21] = (uint8_t)(q3 >> 8);
     buffer[22] = (uint8_t)q3;
     
@@ -203,7 +196,6 @@ void sensorReadout() {
     buffer[24] = (uint8_t)(now >> 16);
     buffer[25] = (uint8_t)(now >> 8);
     buffer[26] = (uint8_t)now;
-    
     buffer[27] = checksum(buffer, 2, length-2);
     
 //    Serial.write(buffer,length);
@@ -223,23 +215,19 @@ void setup() {
   pinMode (PinEnc, OUTPUT);
   digitalWrite (PinEnc, HIGH);
 
-  UART.setTX(PinTx);
-  UART.setRX(PinRx);
-
   beginStatus1 = IMUFoot.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
   beginStatus2 = IMUShank.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
   beginStatus3 = ENCODER.begin();
-
-  UART.begin(230400);
+  beginStatus4 = BOTA.begin();
 
   IMUFoot.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   IMUShank.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   
-  uint16_t zeroPos = 10152;//15567;
-  if( !ENCODER.setZeroPos(&zeroPos) ) {
+  uint16_t zeroPos = 10152;//
+  if( !ENCODER.setZeroPos(zeroPos) ) {
     Serial.println("Encoder could not be set to zero.");
   }
-  
+
   fourkHzTimer.begin(sensorReadout, 250);
 }
 
@@ -260,12 +248,38 @@ void loop() {
   tgy2 = mean(gy2);
   tgz2 = mean(gz2);
   tangle = median(angle);
+  forces[0] = 0;
+  forces[1] = Fx[(l-1+10)%10];
+  forces[2] = Fy[(l-1+10)%10];
+  forces[3] = Fz[(l-1+10)%10];
+  torques[0] = 0;
+  torques[1] = Tx[(l-1+10)%10];
+  torques[2] = Ty[(l-1+10)%10];
+  torques[3] = Tz[(l-1+10)%10];
   interrupts();
   
   AHRS.getQEKF(q1, q2, &tax1, &tay1, &taz1, &tgx1, &tgy1, &tgz1, &tax2, &tay2, &taz2, &tgx2, &tgy2, &tgz2, &tangle);
 
   float invq2[4];
   invertQuat(q2, invq2);
+
+  quatMult(invq2, forces, forces);
+  quatMult(forces, q2, forces);
+
+  quatMult(invq2, torques, torques);
+  quatMult(torques, q2, torques);
+
+  Serial.print(forces[1]);
+  Serial.print("\t");
+  Serial.print(forces[2]);
+  Serial.print("\t");
+  Serial.print(forces[3]);
+  Serial.print("\t");
+  Serial.print(torques[1]);
+  Serial.print("\t");
+  Serial.print(torques[2]);
+  Serial.print("\t");
+  Serial.println(torques[3]);
   
   noInterrupts();
   quatMult(q1, invq2, qrel);
@@ -279,104 +293,10 @@ void loop() {
 //  Serial.println(qrel[3]);
 
   // output necessary for visualization with processing
-  serialPrintFloatArr(qrel, 4);
-  Serial.println(""); //line break
-  delay(100);
-  
-  //serialEvent();
-
-//  forces[0] = ex[(l-1+10)%10]+32767;
-//  forces[1] = ey[(l-1+10)%10]+32767;
-//  forces[2] = ez[(l-1+10)%10]+32767;
-//  torques[0] = emx[(l-1+10)%10]+32767;
-//  torques[1] = emy[(l-1+10)%10]+32767;
-//  torques[2] = emz[(l-1+10)%10]+32767;
-
-//  Serial.print(ex[(l-1+10)%10]);
-//  Serial.print("\t");
-//  Serial.print(ey[(l-1+10)%10]);
-//  Serial.print("\t");
-//  Serial.print(ez[(l-1+10)%10]);
-//  Serial.print("\t");
-//  Serial.print(emx[(l-1+10)%10]);
-//  Serial.print("\t");
-//  Serial.print(emy[(l-1+10)%10]);
-//  Serial.print("\t");
-//  Serial.println(emz[(l-1+10)%10]);
-
-//  Serial.print(mean(ex));
-//  Serial.print("\t");
-//  Serial.print(mean(ey));
-//  Serial.print("\t");
-//  Serial.print(mean(ez));
-//  Serial.print("\t");
-//  Serial.print(mean(emx));
-//  Serial.print("\t");
-//  Serial.print(mean(emy));
-//  Serial.print("\t");
-//  Serial.println(mean(emz));
+//  serialPrintFloatArr(qrel, 4);
+//  Serial.println(""); //line break
+//  delay(100);
   
   contact = true;
   interrupts();
 }
-
-void serialEvent() {
-  while (UART.available() > 0) {
-    int reading;
-    if (!started) {
-      reading = UART.read();
-      if ( reading == 10 ) {
-        started = true;
-      }
-    }
-    else {
-      if (UART.available() > 0) {
-        reading = UART.read();
-        switch (reading) {
-          case 45:
-            sign = -1;
-            break;
-          case 32:
-            data[variable] *= sign;
-            //Serial.print(data[variable]);
-            //Serial.print("\t");
-            sign = 1;
-            variable++;
-            break;
-          case 13:
-            //Serial.println("");
-            ex[l] = data[0];
-            ey[l] = data[1];
-            ez[l] = data[2];
-            emx[l] = data[3];
-            emy[l] = data[4];
-            emz[l] = data[5];
-            started = false;
-//            Serial.print(ex[l]);
-//            Serial.print("\t");
-//            Serial.print(ey[l]);
-//            Serial.print("\t");
-//            Serial.print(ez[l]);
-//            Serial.print("\t");
-//            Serial.print(emx[l]);
-//            Serial.print("\t");
-//            Serial.print(emy[l]);
-//            Serial.print("\t");
-//            Serial.println(emz[l]);
-            variable = 0;
-            data[0] = 0; data[1] = 0; data[2] = 0; data[3] = 0; data[4] = 0; data[5] = 0;
-            l++;
-            break;
-          default:
-            data[variable] *= 10;
-            data[variable] += reading - 48;
-        }
-      }
-    }
-    if (l==number) {
-      l = 0;
-    }
-  }
-}
-
-
