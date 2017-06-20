@@ -11,12 +11,17 @@ Contact::Contact() : contact_(false), detectForceThreshold_(-20), accThreshold_(
 	
 }
 
-void Contact::update(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* forces, bool* contact) {
+void Contact::update(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* forces, float* torques, bool* contact) {
     float invq2[4];
     invertQuat(q2, invq2);
 
-    quatMult(invq2, forces, forces);
-    quatMult(forces, q2, forces);
+    float tempForces[4] = {0, forces[0], forces[1], forces[2]};
+    quatMult(invq2, tempForces, tempForces);
+    quatMult(tempForces, q2, tempForces);
+
+    float tempTorques[4] = {0, torques[0], torques[1], torques[2]};
+    quatMult(invq2, tempTorques, tempTorques);
+    quatMult(tempTorques, q2, tempTorques);
 
     float accZ = 0;
 
@@ -30,19 +35,26 @@ void Contact::update(float* q1, float* q2, float* ax1, float* ay1, float* az1, f
         }
     }
     if (contact_ == false) {
-        if (forces[3] < detectForceThreshold_) {
+        if (tempForces[3] < detectForceThreshold_) {
             contact_ = true;
         }
-        else if ( (forces[3] < accForceThreshold_) && (accZ > accThreshold_) ) {
+        else if ( (tempForces[3] < accForceThreshold_) && (accZ > accThreshold_) ) {
             contact_ = true;
         }
     }
     else {
-        if (forces[3] > removeForceThreshold_) {
+        if (tempForces[3] > removeForceThreshold_) {
             contact_ = false;
         }
     }
+
     *contact = contact_;
+    forces[0] = tempForces[1];
+    forces[1] = tempForces[2];
+    forces[2] = tempForces[3];
+    torques[0] = tempTorques[1];
+    torques[1] = tempTorques[2];
+    torques[2] = tempTorques[3];
 }
 
 void quatMult(float q[4], float p[4], float r[4]) {

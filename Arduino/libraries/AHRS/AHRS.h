@@ -60,9 +60,6 @@ class AHRS{
         const float G = 9.807f;
 };
 
-void quatMult(float q[4], float p[4], float r[4]);
-void invertQuat(float q[4], float r[4]);
-
 void quatToEul(float* q, float* angles);
 void eulToQuat(float* angles, float* q);
 void getYawPitchRoll(float* q, float* ypr);

@@ -403,28 +403,6 @@ float invSqrt(float number) {
   y = * ( float * ) &i;
   y = y * ( f - ( x * y * y ) );
   return y;
-} 
-
-void quatMult(float q[4], float p[4], float r[4]) {
-  // Input: two quaternions to be multiplied
-  // Output: output of the multiplication
-  float temp[4];
-  // JPL
-  temp[0] = -q[1]*p[1] - q[2]*p[2] - q[3]*p[3] + q[0]*p[0];
-  temp[1] = q[0]*p[1] + q[3]*p[2] - q[2]*p[3] + q[1]*p[0];
-  temp[2] = -q[3]*p[1] + q[0]*p[2] + q[1]*p[3] + q[2]*p[0];
-  temp[3] = q[2]*p[1] - q[1]*p[2] + q[0]*p[3] + q[3]*p[0];
-  r[0] = temp[0];
-  r[1] = temp[1];
-  r[2] = temp[2];
-  r[3] = temp[3];
-}  
-
-void invertQuat(float q[4], float r[4]) {
-  r[0] = q[0];
-  r[1] = -q[1];
-  r[2] = -q[2];
-  r[3] = -q[3];
 }
 
 void quatToRotMat(float q[4], Eigen::MatrixXf& Rot){
@@ -445,7 +423,6 @@ void rotMatToQuat(Eigen::MatrixXf& Rot, float q[4]){
   q[2] = (Rot(2,0)-Rot(0,2))/(4*q[0]);
   q[3] = (Rot(0,1)-Rot(1,0))/(4*q[0]);
 }
-
 
 float median(float array[]) {
     // Allocate an array of the same size and sort it.
