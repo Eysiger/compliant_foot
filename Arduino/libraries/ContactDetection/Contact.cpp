@@ -11,7 +11,7 @@ Contact::Contact() : contact_(false), detectForceThreshold_(-20), accThreshold_(
 	
 }
 
-void Contact::update(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* forces, float* torques, bool* contact) {
+void Contact::update(float* q2, float* ax1, float* ay1, float* az1, float* forces, float* torques, bool* contact) {
     float invq2[4];
     invertQuat(q2, invq2);
 

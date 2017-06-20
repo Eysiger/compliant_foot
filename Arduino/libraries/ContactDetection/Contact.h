@@ -15,7 +15,7 @@ class Contact{
     public:
         Contact();
 
-        void update(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* forces, float* torques, bool* contact);
+        void update(float* q2, float* ax1, float* ay1, float* az1, float* forces, float* torques, bool* contact);
 
         void setDetectForceThreshold(float detectForceThreshold) {
         	detectForceThreshold_ = detectForceThreshold;
