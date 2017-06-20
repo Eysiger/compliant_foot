@@ -19,16 +19,8 @@ class AHRS{
     public:
         AHRS(float bx1, float by1, float bz1, float bx2, float by2, float bz2);
         void getQEKF(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi);
-        void getQDCM(float* q, float* ax, float* ay, float* az, float* gx, float* gy, float* gz);
 
     private:
-        void DCMupdate(float* ax, float* ay, float* az, float* gx, float* gy, float* gz);
-        volatile float twoKp = (2.0f * 0.5f); // 2 * proportional gain;      // 2 * proportional gain (Kp)
-        volatile float twoKi = (2.0f * 0.1f); // 2 * integral gain;      // 2 * integral gain (Ki)
-        float q0, q1, q2, q3; // quaternion of sensor frame relative to auxiliary frame
-        float sampleFreq; // half the sample period expressed in seconds
-        volatile float integralFBx,  integralFBy, integralFBz;
-
         void EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi);
         float gyroNoise = 0.008*sqrt(8000)/180*M_PI;
         float gyroBias = 5/180*M_PI;
