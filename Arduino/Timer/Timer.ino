@@ -24,7 +24,7 @@ BOTA BOTA(PinTx, PinRx);
 // an AHRS object providing an EKF sensor fusion of two IMUs with an encoder in between (initial values of gyro offsets)
 AHRS AHRS(-0.0231, 0.0092, 0.0048, 0.0112, 0.0206, -0.0082);
 
-// 
+// a contactState object to estimate the contact state from acceleration, orientation and forces
 Contact ContactState;
 
 // a timer object for sensor readout at 4kHz
@@ -42,8 +42,8 @@ int l = 0;
 
 float qrel[4];
 bool contact;
-float forces[4];
-float torques[4];
+float worldForces[3];
+float worldTorques[3];
 
 unsigned long stime;
 
@@ -77,10 +77,11 @@ void sensorReadout() {
     delay(1000);
   }
   else{
+    // get the encoder angle (deg)
     if( !ENCODER.getAngle(&angle[i]) ) {
     Serial.println("Data from angular encoder couldn't be gathered.");
-    }
-//    // used to determine zero position
+  }
+  // used to determine zero position
 //    uint16_t counts;
 //    ENCODER.getAngleCounts(&counts);
 //    Serial.println(counts);
@@ -114,7 +115,6 @@ void sensorReadout() {
 //  Serial.print(gz2[i],6);
 //  Serial.print("\t");
 //  Serial.println(angle[i],6);
-  //if(az1[i] >= 4*9.8) { Serial.println("touch down"); }
 
   i++;
 
@@ -159,22 +159,22 @@ void sensorReadout() {
     float NewtonMeterToIntXY = 3000.0;
     float NewtonMeterToIntZ = 2500.0;
 
-    uint16_t fx = Fx[(l-1+10)%10]*NewtonToIntXY + offset;
+    uint16_t fx = worldForces[0]*NewtonToIntXY + offset;
     buffer[3] = (uint8_t)(fx >> 8);
     buffer[4] = (uint8_t)fx;
-    uint16_t fy = Fy[(l-1+10)%10]*NewtonToIntXY + offset;
+    uint16_t fy = worldForces[1]*NewtonToIntXY + offset;
     buffer[5] = (uint8_t)(fy >> 8);
     buffer[6] = (uint8_t)fy;
-    uint16_t fz = Fz[(l-1+10)%10]*NewtonToIntZ + offset;
+    uint16_t fz = worldForces[2]*NewtonToIntZ + offset;
     buffer[7] = (uint8_t)(fz >> 8);
     buffer[8] = (uint8_t)fz;
-    uint16_t tx = Tx[(l-1+10)%10]*NewtonMeterToIntXY + offset;
+    uint16_t tx = worldTorques[0]*NewtonMeterToIntXY + offset;
     buffer[9] = (uint8_t)(tx >> 8);
     buffer[10] = (uint8_t)tx;
-    uint16_t ty = Ty[(l-1+10)%10]*NewtonMeterToIntXY + offset;
+    uint16_t ty = worldTorques[1]*NewtonMeterToIntXY + offset;
     buffer[11] = (uint8_t)(ty >> 8);
     buffer[12] = (uint8_t)ty;
-    uint16_t tz = Tz[(l-1+10)%10]*NewtonMeterToIntZ + offset;
+    uint16_t tz = worldTorques[2]*NewtonMeterToIntZ + offset;
     buffer[13] = (uint8_t)(tz >> 8);
     buffer[14] = (uint8_t)tz;
 
@@ -240,8 +240,7 @@ void setup() {
 }
 
 void loop() {
-  float q1[4];
-  float q2[4];
+  // assure that variables cannot be written and read at the same time
   noInterrupts();
   tax1 = median(ax1);
   tay1 = median(ay1);
@@ -256,39 +255,24 @@ void loop() {
   tgy2 = mean(gy2);
   tgz2 = mean(gz2);
   tangle = median(angle);
-  forces[0] = 0;
-  forces[1] = Fx[(l-1+10)%10];
-  forces[2] = Fy[(l-1+10)%10];
-  forces[3] = Fz[(l-1+10)%10];
-  torques[0] = 0;
-  torques[1] = Tx[(l-1+10)%10];
-  torques[2] = Ty[(l-1+10)%10];
-  torques[3] = Tz[(l-1+10)%10];
+  worldForces[0] = Fx[(l-1+10)%10];
+  worldForces[1] = Fy[(l-1+10)%10];
+  worldForces[2] = Fz[(l-1+10)%10];
+  worldTorques[0] = Tx[(l-1+10)%10];
+  worldTorques[1] = Ty[(l-1+10)%10];
+  worldTorques[2] = Tz[(l-1+10)%10];
   interrupts();
   
+  // update poses of shank and foot with measured data from both IMUs and the angular encoder, returns pose of foothold and shank
+  float q1[4];
+  float q2[4];
   AHRS.getQEKF(q1, q2, &tax1, &tay1, &taz1, &tgx1, &tgy1, &tgz1, &tax2, &tay2, &taz2, &tgx2, &tgy2, &tgz2, &tangle);
 
+  // compute relative quaternion between q1 and q2
   float invq2[4];
   invertQuat(q2, invq2);
 
-//  quatMult(invq2, forces, forces);
-//  quatMult(forces, q2, forces);
-//
-//  quatMult(invq2, torques, torques);
-//  quatMult(torques, q2, torques);
-
-//  Serial.print(forces[1]);
-//  Serial.print("\t");
-//  Serial.print(forces[2]);
-//  Serial.print("\t");
-//  Serial.print(forces[3]);
-//  Serial.print("\t");
-//  Serial.print(torques[1]);
-//  Serial.print("\t");
-//  Serial.print(torques[2]);
-//  Serial.print("\t");
-//  Serial.println(torques[3]);
-  
+  // assure that variables cannot be written and published at the same time
   noInterrupts();
   quatMult(q1, invq2, qrel);
   
@@ -305,7 +289,33 @@ void loop() {
 //  Serial.println(""); //line break
 //  delay(100);
 
-  ContactState.update(q1, q2, ax1, ay1, az1, forces, &contact);
+//  Serial.print(worldForces[0]);
+//  Serial.print("\t");
+//  Serial.print(worldForces[1]);
+//  Serial.print("\t");
+//  Serial.print(worldForces[2]);
+//  Serial.print("\t");
+//  Serial.print(worldForces[0]);
+//  Serial.print("\t");
+//  Serial.print(worldForces[1]);
+//  Serial.print("\t");
+//  Serial.println(worldForces[2]);
+
+  // provides the contact state with the provided thresholds and rotates forces and torques in world coordinate frame
+  ContactState.update(q2, ax1, ay1, az1, worldForces, worldTorques, &contact);
+  
+//  Serial.print(worldForces[0]);
+//  Serial.print("\t");
+//  Serial.print(worldForces[1]);
+//  Serial.print("\t");
+//  Serial.print(worldForces[2]);
+//  Serial.print("\t");
+//  Serial.print(worldForces[0]);
+//  Serial.print("\t");
+//  Serial.print(worldForces[1]);
+//  Serial.print("\t");
+//  Serial.println(worldForces[2]);
+//  Serial.println("");
   
   interrupts();
 }
