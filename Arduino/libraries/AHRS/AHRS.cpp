@@ -366,12 +366,12 @@ float mean(float array[]) {
     return sum/size;
 }
 
-uint8_t checksum(uint8_t array[], int first, int last) {
+uint16_t checksum(uint8_t array[], int first, int last) {
   int count = 0; 
   for (int j=first; j<=last; j++) {
     for (int k=0; k<8; k++) {
       count += (array[j] >> k) & 0x01;
     }
   }
-  return (uint8_t) count;
+  return (uint16_t) count;
 }
