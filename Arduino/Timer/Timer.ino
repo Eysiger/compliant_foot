@@ -44,6 +44,7 @@ float qrel[4];
 bool contact;
 float worldForces[3];
 float worldTorques[3];
+float quat1[4];
 
 unsigned long stime;
 
@@ -80,8 +81,8 @@ void sensorReadout() {
     // get the encoder angle (deg)
     if( !ENCODER.getAngle(&angle[i]) ) {
     Serial.println("Data from angular encoder couldn't be gathered.");
-  }
-  // used to determine zero position
+    }
+//   // used to determine zero position
 //    uint16_t counts;
 //    ENCODER.getAngleCounts(&counts);
 //    Serial.println(counts);
@@ -144,7 +145,7 @@ void sensorReadout() {
 
   if(i == number) {
     //WRITE to USB
-    int length = 28;
+    int length = 49;
     byte buffer[length];
     buffer[0] = 0xFF;
     buffer[1] = 0xFF;
@@ -192,13 +193,50 @@ void sensorReadout() {
     uint16_t q3 = (qrel[3]+1) * quatToInt;
     buffer[21] = (uint8_t)(q3 >> 8);
     buffer[22] = (uint8_t)q3;
+
+    q0 = (quat1[0]+1) * quatToInt;
+    buffer[23] = (uint8_t)(q0 >> 8);
+    buffer[24] = (uint8_t)q0;
+    q1 = (quat1[1]+1) * quatToInt;
+    buffer[25] = (uint8_t)(q1 >> 8);
+    buffer[26] = (uint8_t)q1;
+    q2 = (quat1[2]+1) * quatToInt;
+    buffer[27] = (uint8_t)(q2 >> 8);
+    buffer[28] = (uint8_t)q2;
+    q3 = (quat1[3]+1) * quatToInt;
+    buffer[29] = (uint8_t)(q3 >> 8);
+    buffer[30] = (uint8_t)q3;
+
+    float AccToInt = 200.0;
+    float GyroToInt = 7500.0;
+
+    uint16_t accx = tax1*AccToInt + offset;
+    buffer[31] = (uint8_t)(accx >> 8);
+    buffer[32] = (uint8_t)accx;
+    uint16_t accy = tay1*AccToInt + offset;
+    buffer[33] = (uint8_t)(accy >> 8);
+    buffer[34] = (uint8_t)accy;
+    uint16_t accz = taz1*AccToInt + offset;
+    buffer[35] = (uint8_t)(accz >> 8);
+    buffer[36] = (uint8_t)accz;
+    uint16_t gyrox = tgx1*GyroToInt + offset;
+    buffer[37] = (uint8_t)(gyrox >> 8);
+    buffer[38] = (uint8_t)gyrox;
+    uint16_t gyroy = tgy1*GyroToInt + offset;
+    buffer[39] = (uint8_t)(gyroy >> 8);
+    buffer[40] = (uint8_t)gyroy;
+    uint16_t gyroz = tgz1*GyroToInt + offset;
+    buffer[41] = (uint8_t)(gyroz >> 8);
+    buffer[42] = (uint8_t)gyroz;
     
     uint32_t now = micros();
-    buffer[23] = (uint8_t)(now >> 24);
-    buffer[24] = (uint8_t)(now >> 16);
-    buffer[25] = (uint8_t)(now >> 8);
-    buffer[26] = (uint8_t)now;
-    buffer[27] = checksum(buffer, 2, length-2);
+    buffer[43] = (uint8_t)(now >> 24);
+    buffer[44] = (uint8_t)(now >> 16);
+    buffer[45] = (uint8_t)(now >> 8);
+    buffer[46] = (uint8_t)now;
+    uint16_t check = checksum(buffer, 2, length-3);;
+    buffer[47] = (uint8_t)(check >> 8);
+    buffer[48] = (uint8_t)check;
     
     Serial.write(buffer,length);
     Serial.send_now();
@@ -275,6 +313,10 @@ void loop() {
   // assure that variables cannot be written and published at the same time
   noInterrupts();
   quatMult(q1, invq2, qrel);
+  quat1[0] = q1[0];
+  quat1[1] = q1[1];
+  quat1[2] = q1[2];
+  quat1[3] = q1[3];
   
 //  Serial.print(qrel[0]);
 //  Serial.print("\t");
@@ -316,6 +358,8 @@ void loop() {
 //  Serial.print("\t");
 //  Serial.println(worldForces[2]);
 //  Serial.println("");
+//  Serial.print("contactState: ");
+//  Serial.println(contact);
   
   interrupts();
 }
