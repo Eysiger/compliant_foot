@@ -29,8 +29,6 @@ AS5048A::AS5048A(uint8_t csPin, spi_mosi_pin pin){
 
 /* starts I2C communication and sets up the AS5048A */
 bool AS5048A::begin(){
-    uint8_t buff[3];
-    uint8_t data[7];
 
     // setting CS pin to output
     pinMode(_csPin,OUTPUT);
@@ -303,7 +301,6 @@ void AS5048A::clearError(){
 
 /* writes a byte to AS5048A register given a register address and data */
 void AS5048A::writeRegister(uint16_t subAddress, uint16_t data){
-    uint8_t buff[1];
 
     /* write data to device */
 

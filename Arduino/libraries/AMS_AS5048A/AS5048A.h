@@ -60,8 +60,6 @@ class AS5048A{
         int fieldStrength();
         
     private:
-        // uint8_t _address;
-        // uint8_t _bus;
         uint8_t _csPin;
         spi_mosi_pin _mosiPin;
         bool _useSPIHS;
