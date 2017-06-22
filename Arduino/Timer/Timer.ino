@@ -257,8 +257,8 @@ void sensorReadout() {
     buffer[59] = (uint8_t)(check >> 8);
     buffer[60] = (uint8_t)check;
     
-//    Serial.write(buffer,length);
-//    Serial.send_now();
+    Serial.write(buffer,length);
+    Serial.send_now();
 
     i = 0;
   }
@@ -356,11 +356,11 @@ void loop() {
 //  Serial.print("\t");
 //  Serial.print(worldForces[2]);
 //  Serial.print("\t");
-//  Serial.print(worldForces[0]);
+//  Serial.print(worldTorques[0]);
 //  Serial.print("\t");
-//  Serial.print(worldForces[1]);
+//  Serial.print(worldTorques[1]);
 //  Serial.print("\t");
-//  Serial.println(worldForces[2]);
+//  Serial.println(worldTorques[2]);
 
   // provides the contact state with the provided thresholds and rotates forces and torques in world coordinate frame
   ContactState.update(q2, ax1, ay1, az1, worldForces, worldTorques, &contact);
@@ -371,11 +371,11 @@ void loop() {
 //  Serial.print("\t");
 //  Serial.print(worldForces[2]);
 //  Serial.print("\t");
-//  Serial.print(worldForces[0]);
+//  Serial.print(worldTorques[0]);
 //  Serial.print("\t");
-//  Serial.print(worldForces[1]);
+//  Serial.print(worldTorques[1]);
 //  Serial.print("\t");
-//  Serial.println(worldForces[2]);
+//  Serial.println(worldTorques[2]);
 //  Serial.println("");
 //  Serial.print("contactState: ");
 //  Serial.println(contact);
