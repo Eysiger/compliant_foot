@@ -363,7 +363,7 @@ float mean(float array[]) {
     for (int j = 0; j < size; ++j) {
         sum += array[j];
     }
-    return sum/size;
+    return sum/((float)size);
 }
 
 uint16_t checksum(uint8_t array[], int first, int last) {
