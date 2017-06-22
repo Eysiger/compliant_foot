@@ -12,7 +12,7 @@ const int PinTx = 26;
 const int PinRx = 27;
 
 // an ICM20608G object with the ICM-20608-G sensor on Teensy pin (SPI chip select) provided
-ICM20608G IMUFoot(PinIMU1);
+ICM20608G IMUFootsole(PinIMU1);
 ICM20608G IMUShank(PinIMU2);
 
 // an AS5048A object with the magnetic Encoder AS5048A sensor on Teensy pin (SPI chip select) provided
@@ -56,10 +56,10 @@ void sensorReadout() {
     delay(1000);
   }
   else{
-    IMUFoot.getTemp(&t1[i]);                    // workaround to read out temperature first since first readout after AMS AS5048A does not work
+    IMUFootsole.getTemp(&t1[i]);                    // workaround to read out temperature first since first readout after AMS AS5048A does not work
     
     // get both the accel (m/s/s) and gyro (rad/s) data
-    IMUFoot.getMotion6(&ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]);
+    IMUFootsole.getMotion6(&ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]);
   }
   if(beginStatus2 < 0) {
     delay(1000);
@@ -145,7 +145,7 @@ void sensorReadout() {
 
   if(i == number) {
     //WRITE to USB
-    int length = 49;
+    int length = 61;
     byte buffer[length];
     buffer[0] = 0xFF;
     buffer[1] = 0xFF;
@@ -228,18 +228,37 @@ void sensorReadout() {
     uint16_t gyroz = tgz1*GyroToInt + offset;
     buffer[41] = (uint8_t)(gyroz >> 8);
     buffer[42] = (uint8_t)gyroz;
+
+    accx = tax2*AccToInt + offset;
+    buffer[43] = (uint8_t)(accx >> 8);
+    buffer[44] = (uint8_t)accx;
+    accy = tay2*AccToInt + offset;
+    buffer[45] = (uint8_t)(accy >> 8);
+    buffer[46] = (uint8_t)accy;
+    accz = taz2*AccToInt + offset;
+    buffer[47] = (uint8_t)(accz >> 8);
+    buffer[48] = (uint8_t)accz;
+    gyrox = tgx2*GyroToInt + offset;
+    buffer[49] = (uint8_t)(gyrox >> 8);
+    buffer[50] = (uint8_t)gyrox;
+    gyroy = tgy2*GyroToInt + offset;
+    buffer[51] = (uint8_t)(gyroy >> 8);
+    buffer[52] = (uint8_t)gyroy;
+    gyroz = tgz2*GyroToInt + offset;
+    buffer[53] = (uint8_t)(gyroz >> 8);
+    buffer[54] = (uint8_t)gyroz;
     
     uint32_t now = micros();
-    buffer[43] = (uint8_t)(now >> 24);
-    buffer[44] = (uint8_t)(now >> 16);
-    buffer[45] = (uint8_t)(now >> 8);
-    buffer[46] = (uint8_t)now;
+    buffer[55] = (uint8_t)(now >> 24);
+    buffer[56] = (uint8_t)(now >> 16);
+    buffer[57] = (uint8_t)(now >> 8);
+    buffer[58] = (uint8_t)now;
     uint16_t check = checksum(buffer, 2, length-3);;
-    buffer[47] = (uint8_t)(check >> 8);
-    buffer[48] = (uint8_t)check;
+    buffer[59] = (uint8_t)(check >> 8);
+    buffer[60] = (uint8_t)check;
     
-    Serial.write(buffer,length);
-    Serial.send_now();
+//    Serial.write(buffer,length);
+//    Serial.send_now();
 
     i = 0;
   }
@@ -255,12 +274,12 @@ void setup() {
   pinMode (PinEnc, OUTPUT);
   digitalWrite (PinEnc, HIGH);
 
-  beginStatus1 = IMUFoot.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
+  beginStatus1 = IMUFootsole.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
   beginStatus2 = IMUShank.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
   beginStatus3 = ENCODER.begin();
   BOTA.begin();
 
-  IMUFoot.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
+  IMUFootsole.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   IMUShank.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   
   uint16_t zeroPos = 10152;//
@@ -301,7 +320,7 @@ void loop() {
   worldTorques[2] = Tz[(l-1+10)%10];
   interrupts();
   
-  // update poses of shank and foot with measured data from both IMUs and the angular encoder, returns pose of foothold and shank
+  // update poses of shank and footsole with measured data from both IMUs and the angular encoder, returns pose of footsole and shank
   float q1[4];
   float q2[4];
   AHRS.getQEKF(q1, q2, &tax1, &tay1, &taz1, &tgx1, &tgy1, &tgz1, &tax2, &tay2, &taz2, &tgx2, &tgy2, &tgz2, &tangle);
