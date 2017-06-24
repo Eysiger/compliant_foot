@@ -27,6 +27,9 @@ BOTA BOTA(PinTx, PinRx);
 // an AHRS object providing an EKF sensor fusion of two IMUs with an encoder in between (initial values of gyro offsets)
 AHRS AHRS(-0.0231, 0.0092, 0.0048, 0.0112, 0.0206, -0.0082);
 
+// a Force object that provides functions to compensate for internal forces resulting from shell or acceleration
+Force Force;
+
 // a contactState object to estimate the contact state from acceleration, orientation and forces
 Contact ContactState;
 
@@ -359,12 +362,15 @@ void loop() {
 //  Serial.print("\t");
 //  Serial.print(worldForces[2]);
 //  Serial.print("\t");
-//  Serial.print(worldTorques[0]);
+//  Serial.print(worldTorques[0]*100);
 //  Serial.print("\t");
-//  Serial.print(worldTorques[1]);
+//  Serial.print(worldTorques[1]*100);
 //  Serial.print("\t");
-//  Serial.println(worldTorques[2]);
-
+//  Serial.println(worldTorques[2]*100);
+  
+  // uses the measured acceleration and orientation to compensate forces resulting from accelerations
+  Force.compensateAcceleration(qrel, tax1, tay1, taz1, worldForces, worldTorques);
+  
   // provides the contact state with the provided thresholds and rotates forces and torques in world coordinate frame
   ContactState.update(q2, ax1, ay1, az1, worldForces, worldTorques, &contact);
   
@@ -374,11 +380,11 @@ void loop() {
 //  Serial.print("\t");
 //  Serial.print(worldForces[2]);
 //  Serial.print("\t");
-//  Serial.print(worldTorques[0]);
+//  Serial.print(worldTorques[0]*100);
 //  Serial.print("\t");
-//  Serial.print(worldTorques[1]);
+//  Serial.print(worldTorques[1]*100);
 //  Serial.print("\t");
-//  Serial.println(worldTorques[2]);
+//  Serial.println(worldTorques[2]*100);
 //  Serial.println("");
 //  Serial.print("contactState: ");
 //  Serial.println(contact);
