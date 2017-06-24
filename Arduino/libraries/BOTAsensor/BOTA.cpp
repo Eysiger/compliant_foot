@@ -94,3 +94,39 @@ void BOTA::setOffset(float Fx, float Fy, float Fz, float Tx, float Ty, float Tz)
 	offset[4] += Ty;
 	offset[5] += Tz;
 }
+
+void BOTA::getOffset(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, float* Tz) {
+	*Fx = offset[0];
+	*Fy = offset[0];
+	*Fz = offset[0];
+	*Tx = offset[0];
+	*Ty = offset[0];
+	*Tz = offset[0];
+}
+
+void BOTA::setZero() {
+	int number = 5000;
+	float sumfx=0;
+    float sumfy=0;
+    float sumfz=0;
+    float sumtx=0;
+    float sumty=0;
+    float sumtz=0;
+	for (int i = 0; i < number; i++) {
+		float fx, fy, fz, tx, ty, tz;
+		getForces(&fx, &fy, &fz, &tx, &ty, &tz);
+		sumfx += fx;
+	    sumfy += fy;
+	    sumfz += fz;
+	    sumtx += tx;
+	    sumty += ty;
+	    sumtz += tz;
+	}
+
+	offset[0] += sumfx/((float)number);
+	offset[1] += sumfy/((float)number);
+	offset[2] += sumfz/((float)number);
+	offset[3] += sumtx/((float)number);
+	offset[4] += sumty/((float)number);
+	offset[5] += sumtz/((float)number);
+}

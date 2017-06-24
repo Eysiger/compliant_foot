@@ -24,7 +24,9 @@ class BOTA{
         bool getForces(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, float* Tz);
 
         void setOffset(float Fx, float Fy, float Fz, float Tx, float Ty, float Tz);
-        
+        void getOffset(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, float* Tz);
+
+        void setZero();
     private:
     	Eigen::Matrix<float, 6, 6> A;
 		Eigen::Matrix<float, 6, 1> ef;
