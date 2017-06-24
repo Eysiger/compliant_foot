@@ -3,6 +3,9 @@
 #include "BOTA.h"
 #include "AHRS.h"
 #include "Contact.h"
+#include "Force.h"
+#include "Functions.h"
+
 #include "CommunicationUtils.h" // remove later
 
 const int PinIMU1 = 10;
@@ -289,9 +292,9 @@ void setup() {
 
   BOTA.setOffset(0, 0, 0, 0, 0, 0);
   
-  ContactState.setDetectForceThreshold(-20);
+  ContactState.setDetectContactThreshold(-20);
   ContactState.setAccAndForceThreshold(4*9.8, -15);
-  ContactState.setRemoveForceThreshold(-10);
+  ContactState.setRemoveContactThreshold(-10);
 
   fourkHzTimer.begin(sensorReadout, 250);
 }

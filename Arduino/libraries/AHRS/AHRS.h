@@ -12,6 +12,7 @@ adapted from
 #define AHRS_h
 
 #include "Arduino.h"
+#include "Quaternion.h"
 #include <Eigen.h>
 #include <Eigen/LU>
 
@@ -52,20 +53,6 @@ class AHRS{
         const float G = 9.807f;
 };
 
-void quatToEul(float* q, float* angles);
-void eulToQuat(float* angles, float* q);
-void getYawPitchRoll(float* q, float* ypr);
-void getAngles(float* q, float* angles);
 float invSqrt(float number);
-
-void quatMult(float q[4], float p[4], float r[4]);
-void invertQuat(float q[4], float r[4]);
-
-void quatToRotMat(float q[4], Eigen::MatrixXf& Rot);
-void rotMatToQuat(Eigen::MatrixXf& Rot, float q[4]);
-
-float median(float array[]);
-float mean(float array[]);
-uint16_t checksum(uint8_t array[], int first, int last);
 
 #endif
