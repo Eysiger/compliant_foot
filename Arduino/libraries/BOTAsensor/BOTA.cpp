@@ -97,22 +97,22 @@ void BOTA::setOffset(float Fx, float Fy, float Fz, float Tx, float Ty, float Tz)
 
 void BOTA::getOffset(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, float* Tz) {
 	*Fx = offset[0];
-	*Fy = offset[0];
-	*Fz = offset[0];
-	*Tx = offset[0];
-	*Ty = offset[0];
-	*Tz = offset[0];
+	*Fy = offset[1];
+	*Fz = offset[2];
+	*Tx = offset[3];
+	*Ty = offset[4];
+	*Tz = offset[5];
 }
 
 void BOTA::setZero() {
-	int number = 5000;
+	int number = 1000;
 	float sumfx=0;
     float sumfy=0;
     float sumfz=0;
     float sumtx=0;
     float sumty=0;
     float sumtz=0;
-	for (int i = 0; i < number; i++) {
+	for (int i = 0; i < number, i++) {
 		float fx, fy, fz, tx, ty, tz;
 		getForces(&fx, &fy, &fz, &tx, &ty, &tz);
 		sumfx += fx;
@@ -121,6 +121,7 @@ void BOTA::setZero() {
 	    sumtx += tx;
 	    sumty += ty;
 	    sumtz += tz;
+	    delay(6);		//adapt to speed of BOTA sensor
 	}
 
 	offset[0] += sumfx/((float)number);
