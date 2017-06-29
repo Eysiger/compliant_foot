@@ -25,7 +25,7 @@ AS5048A ENCODER(PinEnc);
 BOTA BOTA(PinTx, PinRx);
 
 // an AHRS object providing an EKF sensor fusion of two IMUs with an encoder in between (initial values of gyro offsets)
-AHRS AHRS(-0.0231, 0.0092, 0.0048, 0.0112, 0.0206, -0.0082);
+AHRS AHRS(-0.0251, 0.0092, 0.0048, 0.0145, 0.0216, -0.0082);
 
 // a Force object that provides functions to compensate for internal forces resulting from shell or acceleration
 Force Force;
@@ -46,8 +46,32 @@ int beginStatus1, beginStatus2, beginStatus3;
 int i = 0;
 int l = 0;
 
+const int number2 = 100;
+int m = 0;
+float sumfx=0;
+float sumfy=0;
+float sumfz=0;
+float sumtx=0;
+float sumty=0;
+float sumtz=0;
+float sumfxo=0;
+float sumfyo=0;
+float sumfzo=0;
+float sumtxo=0;
+float sumtyo=0;
+float sumtzo=0;
+float sumq20=0;
+float sumq21=0;
+float sumq22=0;
+float sumq23=0;
+float quat2[4];
+int n = 0;
+int number3 = 400;
+
 float qrel[4];
 bool contact;
+float forces[3];
+float torques[3];
 float worldForces[3];
 float worldTorques[3];
 float quat1[4];
@@ -268,9 +292,16 @@ void sensorReadout() {
 
     i = 0;
   }
+  n++;
+  if (n == number3) {
+    // output necessary for visualization with processing
+//    serialPrintFloatArr(quat2, 4);
+//    Serial.println(""); //line break
+    n=0;
+  }
 }
 
-void setup() {
+void setup() { 
   Serial.begin(230400); // 230400 for read in on ROS
 
   pinMode (PinIMU1, OUTPUT);
@@ -293,7 +324,8 @@ void setup() {
     Serial.println("Encoder could not be set to zero.");
   }
 
-  BOTA.setOffset(0, 0, 0, 0, 0, 0);
+  BOTA.setZero();
+  //BOTA.setOffset(0, -0.13, -1.36, 0.0003, 0.0126, -0.0029);
   
   ContactState.setDetectContactThreshold(-20);
   ContactState.setAccAndForceThreshold(4*9.8, -15);
@@ -318,18 +350,23 @@ void loop() {
   tgy2 = mean(gy2);
   tgz2 = mean(gz2);
   tangle = median(angle);
-  worldForces[0] = Fx[(l-1+10)%10];
-  worldForces[1] = Fy[(l-1+10)%10];
-  worldForces[2] = Fz[(l-1+10)%10];
-  worldTorques[0] = Tx[(l-1+10)%10];
-  worldTorques[1] = Ty[(l-1+10)%10];
-  worldTorques[2] = Tz[(l-1+10)%10];
+  forces[0] = Fx[(l-1+10)%10];
+  forces[1] = Fy[(l-1+10)%10];
+  forces[2] = Fz[(l-1+10)%10];
+  torques[0] = Tx[(l-1+10)%10];
+  torques[1] = Ty[(l-1+10)%10];
+  torques[2] = Tz[(l-1+10)%10];
   interrupts();
   
   // update poses of shank and footsole with measured data from both IMUs and the angular encoder, returns pose of footsole and shank
   float q1[4];
   float q2[4];
   AHRS.getQEKF(q1, q2, &tax1, &tay1, &taz1, &tgx1, &tgy1, &tgz1, &tax2, &tay2, &taz2, &tgx2, &tgy2, &tgz2, &tangle);
+  
+   sumq20+=q2[0];
+  sumq21+=q2[1];
+  sumq22+=q2[2];
+  sumq23+=q2[3];
 
   // compute relative quaternion between q1 and q2
   float invq2[4];
@@ -342,37 +379,92 @@ void loop() {
   quat1[1] = q1[1];
   quat1[2] = q1[2];
   quat1[3] = q1[3];
-  
-//  Serial.print(qrel[0]);
-//  Serial.print("\t");
-//  Serial.print(qrel[1]);
-//  Serial.print("\t");
-//  Serial.print(qrel[2]);
-//  Serial.print("\t");
-//  Serial.println(qrel[3]);
 
+  quat2[0] = q2[0];
+  quat2[1] = q2[1];
+  quat2[2] = q2[2];
+  quat2[3] = q2[3];
+   
   // output necessary for visualization with processing
-//  serialPrintFloatArr(qrel, 4);
+//  serialPrintFloatArr(q2, 4);
 //  Serial.println(""); //line break
 //  delay(100);
-
-//  Serial.print(worldForces[0]);
-//  Serial.print("\t");
-//  Serial.print(worldForces[1]);
-//  Serial.print("\t");
-//  Serial.print(worldForces[2]);
-//  Serial.print("\t");
-//  Serial.print(worldTorques[0]*100);
-//  Serial.print("\t");
-//  Serial.print(worldTorques[1]*100);
-//  Serial.print("\t");
-//  Serial.println(worldTorques[2]*100);
   
   // uses the measured acceleration and orientation to compensate forces resulting from accelerations
-  Force.compensateAcceleration(qrel, tax1, tay1, taz1, worldForces, worldTorques);
+  Force.compensateAcceleration(qrel, tax1, tay1, taz1, forces, torques);
+
+  sumfxo += forces[0];
+  sumfyo += forces[1];
+  sumfzo += forces[2];
+  sumtxo += torques[0]*100;
+  sumtyo += torques[1]*100;
+  sumtzo += torques[2]*100;
+
+  // uses the measured orientation to compensate forces resulting from the outer shell
+  //Force.compensateShell(qrel, forces, torques);
+
+  Force.rotateToWorldCoordiantes(q2, forces, torques, worldForces, worldTorques);
   
   // provides the contact state with the provided thresholds and rotates forces and torques in world coordinate frame
-  ContactState.update(q2, ax1, ay1, az1, worldForces, worldTorques, &contact);
+  ContactState.update(q2, ax1, ay1, az1, worldForces, &contact);
+  
+  sumfx += worldForces[0];
+  sumfy += worldForces[1];
+  sumfz += worldForces[2];
+  sumtx += worldTorques[0]*100;
+  sumty += worldTorques[1]*100;
+  sumtz += worldTorques[2]*100;
+  m++;
+  if (m == number2) {
+//    Serial.print(sumfxo/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumfyo/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumfzo/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumtxo/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumtyo/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumtzo/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumfx/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumfy/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumfz/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumtx/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumty/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumtz/number2,6);
+//    Serial.println("");
+//    Serial.print(sumq20/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumq21/number2,6);
+//    Serial.print("\t");
+//    Serial.print(sumq22/number2,6);
+//    Serial.print("\t");
+//    Serial.println(sumq23/number2,6);
+    m=0;
+    sumfx=0;
+    sumfy=0;
+    sumfz=0;
+    sumtx=0;
+    sumty=0;
+    sumtz=0;
+    sumfxo=0;
+    sumfyo=0;
+    sumfzo=0;
+    sumtxo=0;
+    sumtyo=0;
+    sumtzo=0;
+    sumq20=0;
+    sumq21=0;
+    sumq22=0;
+    sumq23=0;
+  }
   
 //  Serial.print(worldForces[0]);
 //  Serial.print("\t");
