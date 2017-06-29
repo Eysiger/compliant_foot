@@ -52,7 +52,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     // Prediction
     // x_k+1 = x_k + 0.5*Quat(x_k)*(omega-bias)*delta_t
 
-    // quaternion of IMU 1 (foothold) in matrix form
+    // quaternion of IMU 1 (footsole) in matrix form
     Eigen::MatrixXf Quat1(4,4);
     Quat1 << x(0), -x(1), -x(2), -x(3), 
              x(1),  x(0), -x(3),  x(2), 
@@ -66,7 +66,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
               x(9), x(10),   x(7),  -x(8), 
              x(10), -x(9),   x(8),   x(7);
 
-    // prediction update for quaternion of IMU 1 (foothold)
+    // prediction update for quaternion of IMU 1 (footsole)
     omega1 << 0, *gx1, *gy1, *gz1;
     bias1 << 0, x(4), x(5), x(6);
     u1 = 0.5 * Quat1 * (omega1 - bias1) * sampleTime;
@@ -78,30 +78,43 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
 
     // calculate linearized jacobian matrix A = d (x_k + 0.5*Quat(x_k)*(omega-bias)*delta_t)/ dx_k
     float t = sampleTime / 2.0;
-    A <<       1,  t*x(4),  t*x(5),  t*x(6),  t*x(1),  t*x(2),  t*x(3),        0,        0,        0,        0,        0,        0,        0,
-         -t*x(4),       1, -t*x(6),  t*x(5), -t*x(0),  t*x(3), -t*x(2),        0,        0,        0,        0,        0,        0,        0,
-         -t*x(5),  t*x(6),       1, -t*x(4), -t*x(3), -t*x(0),  t*x(1),        0,        0,        0,        0,        0,        0,        0,
-         -t*x(6), -t*x(5),  t*x(4),       1,  t*x(2), -t*x(1), -t*x(0),        0,        0,        0,        0,        0,        0,        0,
-               0,       0,       0,       0,       1,       0,       0,        0,        0,        0,        0,        0,        0,        0,
-               0,       0,       0,       0,       0,       1,       0,        0,        0,        0,        0,        0,        0,        0,
-               0,       0,       0,       0,       0,       0,       1,        0,        0,        0,        0,        0,        0,        0,
-               0,       0,       0,       0,       0,       0,       0,        1,  t*x(11),  t*x(12),  t*x(13),   t*x(8),   t*x(9),  t*x(10),
-               0,       0,       0,       0,       0,       0,       0, -t*x(11),        1, -t*x(13),  t*x(12),  -t*x(7),  t*x(10),  -t*x(9),
-               0,       0,       0,       0,       0,       0,       0, -t*x(12),  t*x(13),        1, -t*x(11), -t*x(10),  -t*x(7),   t*x(8),
-               0,       0,       0,       0,       0,       0,       0, -t*x(13), -t*x(12),  t*x(11),        1,   t*x(9),  -t*x(8),  -t*x(7),
-               0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        1,        0,        0,
-               0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        1,        0,
-               0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        0,        1;
+    Eigen::VectorXf d(6);
+    d << bias1.block<3,1>(1,0) - omega1.block<3,1>(1,0), bias2.block<3,1>(1,0) - omega2.block<3,1>(1,0);
+
+    A <<       1,  t*d(0),  t*d(1),  t*d(2),  t*x(1),  t*x(2),  t*x(3),       0,       0,       0,       0,        0,        0,        0,
+         -t*d(0),       1, -t*d(2),  t*d(1), -t*x(0),  t*x(3), -t*x(2),       0,       0,       0,       0,        0,        0,        0,
+         -t*d(1),  t*d(2),       1, -t*d(0), -t*x(3), -t*x(0),  t*x(1),       0,       0,       0,       0,        0,        0,        0,
+         -t*d(2), -t*d(1),  t*d(0),       1,  t*x(2), -t*x(1), -t*x(0),       0,       0,       0,       0,        0,        0,        0,
+               0,       0,       0,       0,       1,       0,       0,       0,       0,       0,       0,        0,        0,        0,
+               0,       0,       0,       0,       0,       1,       0,       0,       0,       0,       0,        0,        0,        0,
+               0,       0,       0,       0,       0,       0,       1,       0,       0,       0,       0,        0,        0,        0,
+               0,       0,       0,       0,       0,       0,       0,       1,  t*d(3),  t*d(4),  t*d(5),   t*x(8),   t*x(9),  t*x(10),
+               0,       0,       0,       0,       0,       0,       0, -t*d(3),       1, -t*d(5),  t*d(4),  -t*x(7),  t*x(10),  -t*x(9),
+               0,       0,       0,       0,       0,       0,       0, -t*d(4),  t*d(5),       1, -t*d(3), -t*x(10),  -t*x(7),   t*x(8),
+               0,       0,       0,       0,       0,       0,       0, -t*d(5), -t*d(4),  t*d(3),       1,   t*x(9),  -t*x(8),  -t*x(7),
+               0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,        1,        0,        0,
+               0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,        0,        1,        0,
+               0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,        0,        0,        1;
+    // A <<       1,  t*x(4),  t*x(5),  t*x(6),  t*x(1),  t*x(2),  t*x(3),        0,        0,        0,        0,        0,        0,        0,
+    //      -t*x(4),       1, -t*x(6),  t*x(5), -t*x(0),  t*x(3), -t*x(2),        0,        0,        0,        0,        0,        0,        0,
+    //      -t*x(5),  t*x(6),       1, -t*x(4), -t*x(3), -t*x(0),  t*x(1),        0,        0,        0,        0,        0,        0,        0,
+    //      -t*x(6), -t*x(5),  t*x(4),       1,  t*x(2), -t*x(1), -t*x(0),        0,        0,        0,        0,        0,        0,        0,
+    //            0,       0,       0,       0,       1,       0,       0,        0,        0,        0,        0,        0,        0,        0,
+    //            0,       0,       0,       0,       0,       1,       0,        0,        0,        0,        0,        0,        0,        0,
+    //            0,       0,       0,       0,       0,       0,       1,        0,        0,        0,        0,        0,        0,        0,
+    //            0,       0,       0,       0,       0,       0,       0,        1,  t*x(11),  t*x(12),  t*x(13),   t*x(8),   t*x(9),  t*x(10),
+    //            0,       0,       0,       0,       0,       0,       0, -t*x(11),        1, -t*x(13),  t*x(12),  -t*x(7),  t*x(10),  -t*x(9),
+    //            0,       0,       0,       0,       0,       0,       0, -t*x(12),  t*x(13),        1, -t*x(11), -t*x(10),  -t*x(7),   t*x(8),
+    //            0,       0,       0,       0,       0,       0,       0, -t*x(13), -t*x(12),  t*x(11),        1,   t*x(9),  -t*x(8),  -t*x(7),
+    //            0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        1,        0,        0,
+    //            0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        1,        0,
+    //            0,       0,       0,       0,       0,       0,       0,        0,        0,        0,        0,        0,        0,        1;
 
     // calculate the covariance of the gyroscope noise in the direction of the quaternions Q*R*transpose(Q), set the bias noise to 0
     L <<         Quat1.block<4,3>(0,1), Eigen::MatrixXf::Zero(4,3),
-                           0,   0,   0,                0,   0,   0, 
-                           0,   0,   0,                0,   0,   0,
-                           0,   0,   0,                0,   0,   0,
+            Eigen::MatrixXf::Zero(3,6),
             Eigen::MatrixXf::Zero(4,3),      Quat2.block<4,3>(0,1),
-                           0,   0,   0,                0,   0,   0,
-                           0,   0,   0,                0,   0,   0,
-                           0,   0,   0,                0,   0,   0;
+            Eigen::MatrixXf::Zero(3,6);
     LQL << L.block<4,3>(0,0)*Q.block<3,3>(0,0)*(L.block<4,3>(0,0).transpose()), Eigen::MatrixXf::Zero(4,10),
            Eigen::MatrixXf::Zero(3,14),
            Eigen::MatrixXf::Zero(4,7),                                          L.block<4,3>(7,3)*Q.block<3,3>(3,3)*(L.block<4,3>(7,3).transpose()), Eigen::MatrixXf::Zero(4,3),
@@ -156,7 +169,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
            *psi;
     }
 
-    // calculate the relative quaternion between IMU1 (foothold) and IMU2 (shank), q1*inv(q2) = qr
+    // calculate the relative quaternion between IMU1 (footsole) and IMU2 (shank), q1*inv(q2) = qr
     float q0r = x(0)*x(7) + x(1)*x(8) + x(2)*x(9) + x(3)*x(10);
     float q1r = -x(0)*x(8) + x(1)*x(7) + x(2)*x(10) - x(3)*x(9);
     float q2r = -x(0)*x(9) - x(1)*x(10) + x(2)*x(7) + x(3)*x(8);
@@ -193,7 +206,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     
     float no = 4*fr_0312*fr_0312 + pr*pr;
 
-    // calculate linearized jacobian matrix H = d ([ inv(q1)*z_w*q1, inv(q2)*z_w*q2, -atan( 2*(q0r*q3r+q1r*q2r)/(q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r) ) ]) / dx_k
+    // calculate linearized jacobian matrix H = d ([ q1*z_w*inv(q1), q2*z_w*inv(q2), -atan( 2*(q0r*q3r+q1r*q2r)/(q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r) ) ]) / dx_k
     H << -2*x(2),  2*x(3), -2*x(0),  2*x(1), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
           2*x(1),  2*x(0),  2*x(3),  2*x(2), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
           2*x(0), -2*x(1), -2*x(2),  2*x(3), 0, 0, 0,       0,       0,       0,       0, 0, 0, 0,
@@ -211,7 +224,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     // update states with measurement update
     x = x + K * (z-h);
 
-    // Normalise quaternion of IMU 1 (foothold)
+    // Normalise quaternion of IMU 1 (footsole)
     recipNorm = invSqrt(x(0) * x(0) + x(1) * x(1) + x(2) * x(2) + x(3) * x(3));
     x(0) *= recipNorm;
     x(1) *= recipNorm;
@@ -229,7 +242,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
 
 void AHRS::getQEKF(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {  
   now = micros();
-  sampleTime = (now - lastUpdate) / 1000000.0;
+  sampleTime = ((float)(now - lastUpdate)) / 1000000.0;
   lastUpdate = now;
 
   EKFupdate(ax1, ay1, az1, gx1, gy1, gz1, ax2, ay2, az2, gx2, gy2, gz2, psi);
