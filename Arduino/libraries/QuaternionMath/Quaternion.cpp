@@ -7,7 +7,7 @@ rkaeslin@student.ethz.ch
 
 #include "Quaternion.h"
 
-void quatMult(float q[4], float p[4], float r[4]) {
+void quatMult(float* q, float* p, float* r) {
   // Input: two quaternions to be multiplied
   // Output: output of the multiplication
   float temp[4];
@@ -22,7 +22,7 @@ void quatMult(float q[4], float p[4], float r[4]) {
   r[3] = temp[3];
 }  
 
-void invertQuat(float q[4], float r[4]) {
+void invertQuat(float* q, float* r) {
   r[0] = q[0];
   r[1] = -q[1];
   r[2] = -q[2];
@@ -81,7 +81,7 @@ void getYawPitchRoll(float* q, float* ypr) {
   ypr[2] = atan(gyhat / sqrt(gxhat*gxhat + gzhat*gzhat));
 }
 
-void quatToRotMat(float q[4], Eigen::MatrixXf& Rot){
+void quatToRotMat(float* q, Eigen::MatrixXf& Rot){
   Rot(0,0) = 2*q[0]*q[0] - 1 + 2*q[1]*q[1];
   Rot(0,1) = 2*q[0]*q[3] + 2*q[1]*q[2];
   Rot(0,2) = -2*q[0]*q[2] + 2*q[1]*q[3];
@@ -93,7 +93,7 @@ void quatToRotMat(float q[4], Eigen::MatrixXf& Rot){
   Rot(2,2) = 2*q[0]*q[0] - 1  + 2*q[3]*q[3];
 }
 
-void rotMatToQuat(Eigen::MatrixXf& Rot, float q[4]){
+void rotMatToQuat(Eigen::MatrixXf& Rot, float* q){
   q[0] = sqrt(1+Rot(0,0)+Rot(1,1)+Rot(2,2))/2;
   q[1] = (Rot(1,2)-Rot(2,1))/(4*q[0]);
   q[2] = (Rot(2,0)-Rot(0,2))/(4*q[0]);

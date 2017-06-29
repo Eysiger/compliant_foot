@@ -13,15 +13,15 @@ rkaeslin@student.ethz.ch
 #include <Eigen.h>
 #include <Eigen/LU>
 
-void quatMult(float q[4], float p[4], float r[4]);
-void invertQuat(float q[4], float r[4]);
+void quatMult(float* q, float* p, float* r);
+void invertQuat(float* q, float* r);
 
 void quatToEul(float* q, float* angles);
 void eulToQuat(float* angles, float* q);
 void getYawPitchRoll(float* q, float* ypr);
 void getAngles(float* q, float* angles);
 
-void quatToRotMat(float q[4], Eigen::MatrixXf& Rot);
-void rotMatToQuat(Eigen::MatrixXf& Rot, float q[4]);
+void quatToRotMat(float* q, Eigen::MatrixXf& Rot);
+void rotMatToQuat(Eigen::MatrixXf& Rot, float* q);
 
 #endif
