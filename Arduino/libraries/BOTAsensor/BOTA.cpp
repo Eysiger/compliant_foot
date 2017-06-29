@@ -112,7 +112,7 @@ void BOTA::setZero() {
     float sumtx=0;
     float sumty=0;
     float sumtz=0;
-	for (int i = 0; i < number, i++) {
+	for (int i = 0; i < number; i++) {
 		float fx, fy, fz, tx, ty, tz;
 		getForces(&fx, &fy, &fz, &tx, &ty, &tz);
 		sumfx += fx;
