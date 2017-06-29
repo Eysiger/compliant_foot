@@ -40,3 +40,29 @@ void Force::compensateAcceleration(float* qrel, float ax1, float ay1, float az1,
 void Force::compensateShell(float* qrel, float* forces, float* torques) {
 
 }
+
+void Force::rotateToWorldCoordiantes(float* q2, float* forces, float* torques, float* worldForces, float* worldTorques) {
+  float psiComp = -atan2(2*q2[0]*q2[3] + 2*q2[1]*q2[2], 2*q2[0]*q2[0] + 2*q2[1]*q2[1] - 1);
+  float qrotz[4] = {cos(0.5*psiComp),0,0,sin(0.5*psiComp)};
+
+  float q2Comp[4];
+  float invq2[4];
+  quatMult(q2, qrotz, q2Comp);
+  invertQuat(q2Comp, invq2);
+
+  float tempForces[4] = {0, forces[0], forces[1], forces[2]};
+  quatMult(invq2, tempForces, tempForces);
+  quatMult(tempForces, q2Comp, tempForces);
+
+  float tempTorques[4] = {0, torques[0], torques[1], torques[2]};
+  quatMult(invq2, tempTorques, tempTorques);
+  quatMult(tempTorques, q2Comp, tempTorques);
+
+  worldForces[0] = tempForces[1];
+  worldForces[1] = tempForces[2];
+  worldForces[2] = tempForces[3];
+  worldTorques[0] = tempTorques[1];
+  worldTorques[1] = tempTorques[2];
+  worldTorques[2] = tempTorques[3];
+}
+
