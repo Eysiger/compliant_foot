@@ -239,7 +239,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     Eigen::MatrixXf diff(7,1);
     diff = z - h;
     if (diff(6) > M_PI) { diff(6) -= 2*M_PI; }
-    if (diff(6) < M_PI) { diff(6) += 2*M_PI; }
+    if (diff(6) < -M_PI) { diff(6) += 2*M_PI; }
     x = x + K * diff;
 
     // Normalise quaternion of IMU 1 (footsole)
@@ -465,8 +465,8 @@ void AHRS::EKFupdate2(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
     Eigen::MatrixXf diff(7,1);
     diff = z - h;
     if (diff(6) > M_PI) { diff(6) -= 2*M_PI; }
-    if (diff(6) < M_PI) { diff(6) += 2*M_PI; }
-    x2 = x2 + K2 * diff;    
+    if (diff(6) < -M_PI) { diff(6) += 2*M_PI; }
+    x2 = x2 + K2 * diff;
 
     // Normalise quaternion of IMU 1 (foothold)
     recipNorm = invSqrt(x2(0) * x2(0) + x2(1) * x2(1) + x2(2) * x2(2) + x2(3) * x2(3));
