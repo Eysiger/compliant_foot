@@ -53,11 +53,11 @@ class AHRS{
         Eigen::Matrix<float, 8, 8> P2;
         Eigen::Matrix<float, 8, 8> A2;
         Eigen::Matrix<float, 8, 6> L2;
-        Eigen::Matrix<float, 16, 8> H2;
-        Eigen::Matrix<float, 8, 16> K2;
+        Eigen::Matrix<float, 9, 8> H2;
+        Eigen::Matrix<float, 8, 9> K2;
         Eigen::Matrix<float, 8, 8> I2;
-        Eigen::Matrix<float, 16, 1> h2;
-        Eigen::Matrix<float, 16, 1> z2;
+        Eigen::Matrix<float, 9, 1> h2;
+        Eigen::Matrix<float, 9, 1> z2;
 
         float sampleTime;
         

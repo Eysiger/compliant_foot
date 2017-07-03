@@ -355,25 +355,30 @@ void AHRS::EKFupdate2(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
     // Measurement Update
     float q1[4] = {x2(0), x2(1), x2(2), x2(3)};
     float q2[4] = {x2(4), x2(5), x2(6), x2(7)};
-    float q21[4];
-    float invq2[4];
-    invertQuat(q2, invq2);
-    quatMult(q1, invq2, q21);
+    // float qenc1[4] = {x2(0), x2(1), x2(2), x2(3)};
+    // float qenc2[4] = {x2(4), x2(5), x2(6), x2(7)};
 
-    float epsi = -atan2(2*(q21[0]*q21[3] + q21[1]*q21[2]), (q21[0]*q21[0] + q21[1]*q21[1] - q21[2]*q21[2] - q21[3]*q21[3]));
-    float deltapsi = *psi - epsi;
-    float halfdeltaqenc1[4] = {cos(-deltapsi/4), 0, 0, sin(-deltapsi/4)};
-    float halfdeltaqenc2[4] = {cos(deltapsi/4), 0, 0, sin(deltapsi/4)};
+    // if ( fabs(x2(4)*x2(6)-x2(7)*x2(5)) < 0.49 ) {
+    //   float q21[4];
+    //   float invq2[4];
+    //   invertQuat(q2, invq2);
+    //   quatMult(q1, invq2, q21);
 
-    float qenc1[4];
-    float invq21[4];
-    invertQuat(q21, invq21);
-    quatMult(halfdeltaqenc1, invq21, halfdeltaqenc1);
-    quatMult(q21, halfdeltaqenc1, halfdeltaqenc1);
-    quatMult(halfdeltaqenc1, q1, qenc1);
+    //   float epsi = -atan2(2*(q21[0]*q21[3] + q21[1]*q21[2]), (q21[0]*q21[0] + q21[1]*q21[1] - q21[2]*q21[2] - q21[3]*q21[3]));
+    //   float deltapsi = *psi - epsi;
+    //   float halfdeltaqenc1[4] = {cos(-deltapsi/4), 0, 0, sin(-deltapsi/4)};
+    //   float halfdeltaqenc2[4] = {cos(deltapsi/4), 0, 0, sin(deltapsi/4)};
 
-    float qenc2[4];
-    quatMult(halfdeltaqenc2, q2, qenc2);
+    //   float qenc1[4];
+    //   float invq21[4];
+    //   invertQuat(q21, invq21);
+    //   quatMult(halfdeltaqenc1, invq21, halfdeltaqenc1);
+    //   quatMult(q21, halfdeltaqenc1, halfdeltaqenc1);
+    //   quatMult(halfdeltaqenc1, q1, qenc1);
+
+    //   float qenc2[4];
+    //   quatMult(halfdeltaqenc2, q2, qenc2);
+    // }
 
     // check if external accelerations affect the acceleration measurements 
     if ( (a1 != 0) && (fabs(a1-G) < 0.1*G) && (fabs(a2-G) < 0.1*G) ) { // if only small external accelerations occur, perform the measurement update with the measured accelerations
@@ -403,75 +408,85 @@ void AHRS::EKFupdate2(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
 
       z2 << qup1[0], qup1[1], qup1[2], qup1[3],
             qup2[0], qup2[1], qup2[2], qup2[3],
-            //*psi;
-            qenc1[0], qenc1[1], qenc1[2], qenc1[3],
-            qenc2[0], qenc2[1], qenc2[2], qenc2[3];
+            *psi;
+            // qenc1[0], qenc1[1], qenc1[2], qenc1[3],
+            // qenc2[0], qenc2[1], qenc2[2], qenc2[3];
     }
     else {  // avoid measurement update of acceleration by providing prediction of acceleration as measurement
       z2 << x2(0), x2(1), x2(2), x2(3),
             x2(4), x2(5), x2(6), x2(7),
-            //*psi;
-            qenc1[0], qenc1[1], qenc1[2], qenc1[3],
-            qenc2[0], qenc2[1], qenc2[2], qenc2[3];
+            *psi;
+            // qenc1[0], qenc1[1], qenc1[2], qenc1[3],
+            // qenc2[0], qenc2[1], qenc2[2], qenc2[3];
     }
 
     // calculate the relative quaternion between IMU1 (footsole) and IMU2 (shank), q1*inv(q2) = qr
-    // float q0r =  x2(0)*x2(4) + x2(1)*x2(5) + x2(2)*x2(6) + x2(3)*x2(7);
-    // float q1r = -x2(0)*x2(5) + x2(1)*x2(4) + x2(2)*x2(7) - x2(3)*x2(6);
-    // float q2r = -x2(0)*x2(6) - x2(1)*x2(7) + x2(2)*x2(4) + x2(3)*x2(5);
-    // float q3r = -x2(0)*x2(7) + x2(1)*x2(6) - x2(2)*x2(5) + x2(3)*x2(4);
+    float q0r =  x2(0)*x2(4) + x2(1)*x2(5) + x2(2)*x2(6) + x2(3)*x2(7);
+    float q1r = -x2(0)*x2(5) + x2(1)*x2(4) + x2(2)*x2(7) - x2(3)*x2(6);
+    float q2r = -x2(0)*x2(6) - x2(1)*x2(7) + x2(2)*x2(4) + x2(3)*x2(5);
+    float q3r = -x2(0)*x2(7) + x2(1)*x2(6) - x2(2)*x2(5) + x2(3)*x2(4);
     
-    // predict the measurements, for acceleration z direction rotated with quaternion z_q = inv(q)*z_w*q, for angle psi of qr
-    h2 <<  x2(0), x2(1), x2(2), x2(3),
-           x2(4), x2(5), x2(6), x2(7),
-           //-atan2(2*(q0r*q3r+q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
-           x2(0), x2(1), x2(2), x2(3),
-           x2(4), x2(5), x2(6), x2(7);
+    if ( fabs(x2(4)*x2(6)-x2(7)*x2(5)) < 0.45 ) {
+      // predict the measurements, for acceleration z direction rotated with quaternion z_q = inv(q)*z_w*q, for angle psi of qr
+      h2 <<  x2(0), x2(1), x2(2), x2(3),
+             x2(4), x2(5), x2(6), x2(7),
+             -atan2(2*(q0r*q3r + q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
+             // x2(0), x2(1), x2(2), x2(3),
+             // x2(4), x2(5), x2(6), x2(7);
+    }
+    else {  // avoid measurement update of acceleration by providing measurement of psi as estimation
+      h2 <<  x2(0), x2(1), x2(2), x2(3),
+             x2(4), x2(5), x2(6), x2(7),
+             *psi;
+             // x2(0), x2(1), x2(2), x2(3),
+             // x2(4), x2(5), x2(6), x2(7);
+    }
           
-    // // calculate products nexessary to compute the linearized jacobian matrix H
-    // float pr  =  q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r;
-    // float p1  =  x2(0)*x2(0) + x2(1)*x2(1) - x2(2)*x2(2) - x2(3)*x2(3);
-    // float p2  =  x2(4)*x2(4) + x2(5)*x2(5) - x2(6)*x2(6) - x2(7)*x2(7);
-    // float p2_0_12_3 = x2(4)*x2(4) - x2(5)*x2(5) + x2(6)*x2(6) - x2(7)*x2(7);
+    // calculate products nexessary to compute the linearized jacobian matrix H
+    float pr  =  q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r;
+    float p1  =  x2(0)*x2(0) + x2(1)*x2(1) - x2(2)*x2(2) - x2(3)*x2(3);
+    float p2  =  x2(4)*x2(4) + x2(5)*x2(5) - x2(6)*x2(6) - x2(7)*x2(7);
+    float p2_0_12_3 = x2(4)*x2(4) - x2(5)*x2(5) + x2(6)*x2(6) - x2(7)*x2(7);
 
-    // float fr_0312  =    q0r*q3r +    q1r*q2r; 
-    // float f1_0312  =  x2(0)*x2(3) +  x2(1)*x2(2);
-    // float f1_02_13 =  x2(0)*x2(2) -  x2(1)*x2(3);
-    // float f2_0312  = x2(4)*x2(7) +  x2(5)*x2(6);
-    // float f2_03_12 = x2(4)*x2(7) -  x2(5)*x2(6);
-    // float f2_02_13 =  x2(4)*x2(6) - x2(5)*x2(7);
-    // float f2_0123  =  x2(4)*x2(5) + x2(6)*x2(7);
+    float fr_0312  =    q0r*q3r +    q1r*q2r; 
+    float f1_0312  =  x2(0)*x2(3) +  x2(1)*x2(2);
+    float f1_02_13 =  x2(0)*x2(2) -  x2(1)*x2(3);
+    float f2_0312  = x2(4)*x2(7) +  x2(5)*x2(6);
+    float f2_03_12 = x2(4)*x2(7) -  x2(5)*x2(6);
+    float f2_02_13 =  x2(4)*x2(6) - x2(5)*x2(7);
+    float f2_0123  =  x2(4)*x2(5) + x2(6)*x2(7);
 
-    // float d01 = 4*( 2*f2_02_13*x2(2) + 2*f2_0312*x2(3) + p2*x2(0))*fr_0312 + 2*( 2*f2_0123*x2(2) + 2*f2_03_12*x2(0) - p2_0_12_3*x2(3))*pr;
-    // float d11 = 4*(-2*f2_02_13*x2(3) + 2*f2_0312*x2(2) + p2*x2(1))*fr_0312 + 2*(-2*f2_0123*x2(3) + 2*f2_03_12*x2(1) - p2_0_12_3*x2(2))*pr;
-    // float d21 = 4*( 2*f2_02_13*x2(0) + 2*f2_0312*x2(1) - p2*x2(2))*fr_0312 + 2*( 2*f2_0123*x2(0) - 2*f2_03_12*x2(2) - p2_0_12_3*x2(1))*pr;
-    // float d31 = 4*(-2*f2_02_13*x2(1) + 2*f2_0312*x2(0) - p2*x2(3))*fr_0312 + 2*(-2*f2_0123*x2(1) - 2*f2_03_12*x2(3) - p2_0_12_3*x2(0))*pr;
+    float d01 = 4*( 2*f2_02_13*x2(2) + 2*f2_0312*x2(3) + p2*x2(0))*fr_0312 + 2*( 2*f2_0123*x2(2) + 2*f2_03_12*x2(0) - p2_0_12_3*x2(3))*pr;
+    float d11 = 4*(-2*f2_02_13*x2(3) + 2*f2_0312*x2(2) + p2*x2(1))*fr_0312 + 2*(-2*f2_0123*x2(3) + 2*f2_03_12*x2(1) - p2_0_12_3*x2(2))*pr;
+    float d21 = 4*( 2*f2_02_13*x2(0) + 2*f2_0312*x2(1) - p2*x2(2))*fr_0312 + 2*( 2*f2_0123*x2(0) - 2*f2_03_12*x2(2) - p2_0_12_3*x2(1))*pr;
+    float d31 = 4*(-2*f2_02_13*x2(1) + 2*f2_0312*x2(0) - p2*x2(3))*fr_0312 + 2*(-2*f2_0123*x2(1) - 2*f2_03_12*x2(3) - p2_0_12_3*x2(0))*pr;
     
-    // float d02 = 4*(  2*f1_02_13*x2(6) + 2*f1_0312*x2(7) +  p1*x2(4))*fr_0312 + 2*( 2*f1_02_13*x2(5) -  2*f1_0312*x2(4) + p1*x2(7))*pr;
-    // float d12 = 4*(-2*f1_02_13*x2(7) +  2*f1_0312*x2(6) +  p1*x2(5))*fr_0312 + 2*( 2*f1_02_13*x2(4) +  2*f1_0312*x2(5) - p1*x2(6))*pr;
-    // float d22 = 4*(  2*f1_02_13*x2(4) +  2*f1_0312*x2(5) -  p1*x2(6))*fr_0312 + 2*(2*f1_02_13*x2(7) -  2*f1_0312*x2(6) - p1*x2(5))*pr;
-    // float d32 = 4*( -2*f1_02_13*x2(5) +  2*f1_0312*x2(4) - p1*x2(7))*fr_0312 + 2*( 2*f1_02_13*x2(6) + 2*f1_0312*x2(7) + p1*x2(4))*pr;
+    float d02 = 4*(  2*f1_02_13*x2(6) + 2*f1_0312*x2(7) +  p1*x2(4))*fr_0312 + 2*( 2*f1_02_13*x2(5) -  2*f1_0312*x2(4) + p1*x2(7))*pr;
+    float d12 = 4*(-2*f1_02_13*x2(7) +  2*f1_0312*x2(6) +  p1*x2(5))*fr_0312 + 2*( 2*f1_02_13*x2(4) +  2*f1_0312*x2(5) - p1*x2(6))*pr;
+    float d22 = 4*(  2*f1_02_13*x2(4) +  2*f1_0312*x2(5) -  p1*x2(6))*fr_0312 + 2*(2*f1_02_13*x2(7) -  2*f1_0312*x2(6) - p1*x2(5))*pr;
+    float d32 = 4*( -2*f1_02_13*x2(5) +  2*f1_0312*x2(4) - p1*x2(7))*fr_0312 + 2*( 2*f1_02_13*x2(6) + 2*f1_0312*x2(7) + p1*x2(4))*pr;
     
-    // float no = 4*fr_0312*fr_0312 + pr*pr;
+    float no = 4*fr_0312*fr_0312 + pr*pr;
 
     // // calculate linearized jacobian matrix H = d ([ q1*z_w*inv(q1), q2*z_w*inv(q2), -atan( 2*(q0r*q3r+q1r*q2r)/(q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r) ) ]) / dx_k
     H2 <<  Eigen::MatrixXf::Identity(8,8),
-           Eigen::MatrixXf::Identity(8,8);
-    //        d01/no,  d11/no,  d21/no,  d31/no,  d02/no,  d12/no,  d22/no,  d32/no;
+           // Eigen::MatrixXf::Identity(8,8);
+           d01/no,  d11/no,  d21/no,  d31/no,  d02/no,  d12/no,  d22/no,  d32/no;
             //      0,       0,       0,       0,       0,       0,       0,       0;
 
     // calculate the Kalman gain matrix K
-    K2 = H2.transpose();
-    // K2 << Eigen::MatrixXf::Identity(8,8), P2 * H2.block<1,8>(8,0).transpose() * (H2.block<1,8>(8,0) * P2 * H2.block<1,8>(8,0).transpose() + R.block<1,1>(6,6)).inverse();
+    // K2 = H2.transpose();
+    K2 << Eigen::MatrixXf::Identity(8,8), P2 * H2.block<1,8>(8,0).transpose() * ( H2.block<1,8>(8,0) * P2 * H2.block<1,8>(8,0).transpose() + R.block<1,1>(6,6) ).inverse();
 
     // update the covariance matrix with measurement update
     P2 = (I2 - K2 * H2) * P2;
 
     // update states with measurement update (and make sure that encoder estimate and measuement stay within [-pi, pi])
-    Eigen::MatrixXf diff(16,1);
+    Eigen::MatrixXf diff(9,1);
+    // Eigen::MatrixXf diff(16,1);
     diff = z2 - h2;
-    // if (diff(8) > M_PI) { diff(8) -= 2*M_PI; }
-    // if (diff(8) < -M_PI) { diff(8) += 2*M_PI; }
+    if (diff(8) > M_PI) { diff(8) -= 2*M_PI; }
+    if (diff(8) < -M_PI) { diff(8) += 2*M_PI; }
     x2 = x2 + K2 * diff;
 
     // Normalise quaternion of IMU 1 (foothold)
