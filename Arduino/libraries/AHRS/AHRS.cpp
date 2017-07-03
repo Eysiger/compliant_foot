@@ -235,7 +235,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     // update the covariance matrix with measurement update
     P = (I - K * H) * P;
 
-    // update states with measurement update
+    // update states with measurement update (and make sure that encoder estimate and measuement stay within [-pi, pi])
     Eigen::MatrixXf diff(7,1);
     diff = z - h;
     if (diff(6) > M_PI) { diff(6) -= 2*M_PI; }
@@ -282,7 +282,7 @@ void AHRS::EKFupdate2(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
 
   //if ( (fabs(a1-G) < G) && (fabs(a2-G) < G) ) {
     // Prediction
-    // x_k+1 = x_k + 0.5*Quat(x_k)*(omega-bias)*delta_t
+    // x_k+1 = x_k + 0.5*Quat(x_k)*(omega-bias)*delta_t = x_k+1 = x_k + 0.5*(omega-bias)*q(x_k)*delta_t
 
     // quaternion of IMU 1 (footsole) in matrix form
     Eigen::MatrixXf Quat1(4,4);
@@ -307,7 +307,7 @@ void AHRS::EKFupdate2(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
     u2 = 0.5 * Quat2 * (omega2 - bias2) * sampleTime;
 
     // calculate linearized jacobian matrix A = d (x_k + 0.5*Quat(x_k)*(omega-bias)*delta_t)/ dx_k
-    float t = sampleTime / 2.0;
+    float t = sampleTime * 0.5;
     Eigen::VectorXf d(6);
     d << bias1.block<3,1>(1,0) - omega1.block<3,1>(1,0), bias2.block<3,1>(1,0) - omega2.block<3,1>(1,0);
 
@@ -322,7 +322,7 @@ void AHRS::EKFupdate2(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
 
     // calculate the covariance of the gyroscope noise in the direction of the quaternions Q*R*transpose(Q), set the bias noise to 0
     L2 <<         Quat1.block<4,3>(0,1), Eigen::MatrixXf::Zero(4,3),
-            Eigen::MatrixXf::Zero(4,3),      Quat2.block<4,3>(0,1);
+             Eigen::MatrixXf::Zero(4,3),      Quat2.block<4,3>(0,1);
     
     // update the covarinace matrix with prediction
     P2 = A2 * P2 * A2.transpose() + 0.25 * L2 * Q * L2.transpose();
@@ -353,119 +353,125 @@ void AHRS::EKFupdate2(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
 
 
     // Measurement Update
+    float q1[4] = {x2(0), x2(1), x2(2), x2(3)};
+    float q2[4] = {x2(4), x2(5), x2(6), x2(7)};
+    float q21[4];
+    float invq2[4];
+    invertQuat(q2, invq2);
+    quatMult(q1, invq2, q21);
+
+    float epsi = -atan2(2*(q21[0]*q21[3] + q21[1]*q21[2]), (q21[0]*q21[0] + q21[1]*q21[1] - q21[2]*q21[2] - q21[3]*q21[3]));
+    float deltapsi = *psi - epsi;
+    float halfdeltaqenc1[4] = {cos(-deltapsi/4), 0, 0, sin(-deltapsi/4)};
+    float halfdeltaqenc2[4] = {cos(deltapsi/4), 0, 0, sin(deltapsi/4)};
+
+    float qenc1[4];
+    float invq21[4];
+    invertQuat(q21, invq21);
+    quatMult(halfdeltaqenc1, invq21, halfdeltaqenc1);
+    quatMult(q21, halfdeltaqenc1, halfdeltaqenc1);
+    quatMult(halfdeltaqenc1, q1, qenc1);
+
+    float qenc2[4];
+    quatMult(halfdeltaqenc2, q2, qenc2);
+
     // check if external accelerations affect the acceleration measurements 
-    if ( (fabs(a1-G) < 0.1*G) && (fabs(a2-G) < 0.1*G) ) { // if only small external accelerations occur, perform the measurement update with the measured accelerations
-      z << *ax1 / a1, *ay1 / a1, *az1 / a1, *ax2 / a2, *ay2 / a2, *az2 / a2, *psi;
+    if ( (a1 != 0) && (fabs(a1-G) < 0.1*G) && (fabs(a2-G) < 0.1*G) ) { // if only small external accelerations occur, perform the measurement update with the measured accelerations
+      
+      Eigen::VectorXf acc1(3);
+      acc1 <<  *ax1/a1, *ay1/a1, *az1/a1;
+      Eigen::VectorXf acc2(3);
+      acc2 <<  *ax2/a2, *ay2/a2, *az2/a2;
+      
+      Eigen::MatrixXf Rot1(3,3);
+      Eigen::VectorXf g1(3);
+      quatToRotMat(q1, Rot1);
+      g1 = Rot1.transpose()*acc1;
+
+      Eigen::MatrixXf Rot2(3,3);
+      Eigen::VectorXf g2(3);
+      quatToRotMat(q2, Rot2);
+      g2 = Rot2.transpose()*acc2;
+  
+      float qcorr1[4] = {sqrt((g1(2)+1)/2), g1(1)/sqrt(2*(g1(2)+1)), -g1(0)/sqrt(2*(g1(2)+1)), 0};
+      float qup1[4];
+      quatMult(q1, qcorr1, qup1);
+
+      float qcorr2[4] = {sqrt((g2(2)+1)/2), g2(1)/sqrt(2*(g2(2)+1)), -g2(0)/sqrt(2*(g2(2)+1)), 0};
+      float qup2[4];
+      quatMult(q2, qcorr2, qup2);
+
+      z2 << qup1[0], qup1[1], qup1[2], qup1[3],
+            qup2[0], qup2[1], qup2[2], qup2[3],
+            //*psi;
+            qenc1[0], qenc1[1], qenc1[2], qenc1[3],
+            qenc2[0], qenc2[1], qenc2[2], qenc2[3];
     }
     else {  // avoid measurement update of acceleration by providing prediction of acceleration as measurement
-      z << 2*(x2(1)*x2(3) - x2(0)*x2(2)), 2*(x2(2)*x2(3) + x2(0)*x2(1)), x2(0)*x2(0) - x2(1)*x2(1) - x2(2)*x2(2) + x2(3)*x2(3),
-           2*(x2(5)*x2(7) - x2(4)*x2(6)), 2*(x2(6)*x2(7) + x2(4)*x2(5)), x2(4)*x2(4) - x2(5)*x2(5) - x2(6)*x2(6) + x2(7)*x2(7),
-           *psi;
+      z2 << x2(0), x2(1), x2(2), x2(3),
+            x2(4), x2(5), x2(6), x2(7),
+            //*psi;
+            qenc1[0], qenc1[1], qenc1[2], qenc1[3],
+            qenc2[0], qenc2[1], qenc2[2], qenc2[3];
     }
 
     // calculate the relative quaternion between IMU1 (footsole) and IMU2 (shank), q1*inv(q2) = qr
-    float q0r =  x2(0)*x2(4) + x2(1)*x2(5) + x2(2)*x2(6) + x2(3)*x2(7);
-    float q1r = -x2(0)*x2(5) + x2(1)*x2(4) + x2(2)*x2(7) - x2(3)*x2(6);
-    float q2r = -x2(0)*x2(6) - x2(1)*x2(7) + x2(2)*x2(4) + x2(3)*x2(5);
-    float q3r = -x2(0)*x2(7) + x2(1)*x2(6) - x2(2)*x2(5) + x2(3)*x2(4);
+    // float q0r =  x2(0)*x2(4) + x2(1)*x2(5) + x2(2)*x2(6) + x2(3)*x2(7);
+    // float q1r = -x2(0)*x2(5) + x2(1)*x2(4) + x2(2)*x2(7) - x2(3)*x2(6);
+    // float q2r = -x2(0)*x2(6) - x2(1)*x2(7) + x2(2)*x2(4) + x2(3)*x2(5);
+    // float q3r = -x2(0)*x2(7) + x2(1)*x2(6) - x2(2)*x2(5) + x2(3)*x2(4);
     
     // predict the measurements, for acceleration z direction rotated with quaternion z_q = inv(q)*z_w*q, for angle psi of qr
-    h <<  2*(x2(1)*x2(3) - x2(0)*x2(2)), 2*(x2(2)*x2(3) + x2(0)*x2(1)), x2(0)*x2(0) - x2(1)*x2(1) - x2(2)*x2(2) + x2(3)*x2(3),
-          2*(x2(5)*x2(7) - x2(4)*x2(6)), 2*(x2(6)*x2(7) + x2(4)*x2(5)), x2(4)*x2(4) - x2(5)*x2(5) - x2(6)*x2(6) + x2(7)*x2(7),
-          -atan2(2*(q0r*q3r+q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
+    h2 <<  x2(0), x2(1), x2(2), x2(3),
+           x2(4), x2(5), x2(6), x2(7),
+           //-atan2(2*(q0r*q3r+q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
+           x2(0), x2(1), x2(2), x2(3),
+           x2(4), x2(5), x2(6), x2(7);
           
-    // calculate products nexessary to compute the linearized jacobian matrix H
-    float pr  =  q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r;
-    float p1  =  x2(0)*x2(0) + x2(1)*x2(1) - x2(2)*x2(2) - x2(3)*x2(3);
-    float p2  =  x2(4)*x2(4) + x2(5)*x2(5) - x2(6)*x2(6) - x2(7)*x2(7);
-    float p2_0_12_3 = x2(4)*x2(4) - x2(5)*x2(5) + x2(6)*x2(6) - x2(7)*x2(7);
+    // // calculate products nexessary to compute the linearized jacobian matrix H
+    // float pr  =  q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r;
+    // float p1  =  x2(0)*x2(0) + x2(1)*x2(1) - x2(2)*x2(2) - x2(3)*x2(3);
+    // float p2  =  x2(4)*x2(4) + x2(5)*x2(5) - x2(6)*x2(6) - x2(7)*x2(7);
+    // float p2_0_12_3 = x2(4)*x2(4) - x2(5)*x2(5) + x2(6)*x2(6) - x2(7)*x2(7);
 
-    float fr_0312  =    q0r*q3r +    q1r*q2r; 
-    float f1_0312  =  x2(0)*x2(3) +  x2(1)*x2(2);
-    float f1_02_13 =  x2(0)*x2(2) -  x2(1)*x2(3);
-    float f2_0312  = x2(4)*x2(7) +  x2(5)*x2(6);
-    float f2_03_12 = x2(4)*x2(7) -  x2(5)*x2(6);
-    float f2_02_13 =  x2(4)*x2(6) - x2(5)*x2(7);
-    float f2_0123  =  x2(4)*x2(5) + x2(6)*x2(7);
+    // float fr_0312  =    q0r*q3r +    q1r*q2r; 
+    // float f1_0312  =  x2(0)*x2(3) +  x2(1)*x2(2);
+    // float f1_02_13 =  x2(0)*x2(2) -  x2(1)*x2(3);
+    // float f2_0312  = x2(4)*x2(7) +  x2(5)*x2(6);
+    // float f2_03_12 = x2(4)*x2(7) -  x2(5)*x2(6);
+    // float f2_02_13 =  x2(4)*x2(6) - x2(5)*x2(7);
+    // float f2_0123  =  x2(4)*x2(5) + x2(6)*x2(7);
 
-    float d01 = 4*( 2*f2_02_13*x2(2) + 2*f2_0312*x2(3) + p2*x2(0))*fr_0312 + 2*( 2*f2_0123*x2(2) + 2*f2_03_12*x2(0) - p2_0_12_3*x2(3))*pr;
-    float d11 = 4*(-2*f2_02_13*x2(3) + 2*f2_0312*x2(2) + p2*x2(1))*fr_0312 + 2*(-2*f2_0123*x2(3) + 2*f2_03_12*x2(1) - p2_0_12_3*x2(2))*pr;
-    float d21 = 4*( 2*f2_02_13*x2(0) + 2*f2_0312*x2(1) - p2*x2(2))*fr_0312 + 2*( 2*f2_0123*x2(0) - 2*f2_03_12*x2(2) - p2_0_12_3*x2(1))*pr;
-    float d31 = 4*(-2*f2_02_13*x2(1) + 2*f2_0312*x2(0) - p2*x2(3))*fr_0312 + 2*(-2*f2_0123*x2(1) - 2*f2_03_12*x2(3) - p2_0_12_3*x2(0))*pr;
+    // float d01 = 4*( 2*f2_02_13*x2(2) + 2*f2_0312*x2(3) + p2*x2(0))*fr_0312 + 2*( 2*f2_0123*x2(2) + 2*f2_03_12*x2(0) - p2_0_12_3*x2(3))*pr;
+    // float d11 = 4*(-2*f2_02_13*x2(3) + 2*f2_0312*x2(2) + p2*x2(1))*fr_0312 + 2*(-2*f2_0123*x2(3) + 2*f2_03_12*x2(1) - p2_0_12_3*x2(2))*pr;
+    // float d21 = 4*( 2*f2_02_13*x2(0) + 2*f2_0312*x2(1) - p2*x2(2))*fr_0312 + 2*( 2*f2_0123*x2(0) - 2*f2_03_12*x2(2) - p2_0_12_3*x2(1))*pr;
+    // float d31 = 4*(-2*f2_02_13*x2(1) + 2*f2_0312*x2(0) - p2*x2(3))*fr_0312 + 2*(-2*f2_0123*x2(1) - 2*f2_03_12*x2(3) - p2_0_12_3*x2(0))*pr;
     
-    float d02 = 4*(  2*f1_02_13*x2(6) + 2*f1_0312*x2(7) +  p1*x2(4))*fr_0312 + 2*( 2*f1_02_13*x2(5) -  2*f1_0312*x2(4) + p1*x2(7))*pr;
-    float d12 = 4*(-2*f1_02_13*x2(7) +  2*f1_0312*x2(6) +  p1*x2(5))*fr_0312 + 2*( 2*f1_02_13*x2(4) +  2*f1_0312*x2(5) - p1*x2(6))*pr;
-    float d22 = 4*(  2*f1_02_13*x2(4) +  2*f1_0312*x2(5) -  p1*x2(6))*fr_0312 + 2*(2*f1_02_13*x2(7) -  2*f1_0312*x2(6) - p1*x2(5))*pr;
-    float d32 = 4*( -2*f1_02_13*x2(5) +  2*f1_0312*x2(4) - p1*x2(7))*fr_0312 + 2*( 2*f1_02_13*x2(6) + 2*f1_0312*x2(7) + p1*x2(4))*pr;
+    // float d02 = 4*(  2*f1_02_13*x2(6) + 2*f1_0312*x2(7) +  p1*x2(4))*fr_0312 + 2*( 2*f1_02_13*x2(5) -  2*f1_0312*x2(4) + p1*x2(7))*pr;
+    // float d12 = 4*(-2*f1_02_13*x2(7) +  2*f1_0312*x2(6) +  p1*x2(5))*fr_0312 + 2*( 2*f1_02_13*x2(4) +  2*f1_0312*x2(5) - p1*x2(6))*pr;
+    // float d22 = 4*(  2*f1_02_13*x2(4) +  2*f1_0312*x2(5) -  p1*x2(6))*fr_0312 + 2*(2*f1_02_13*x2(7) -  2*f1_0312*x2(6) - p1*x2(5))*pr;
+    // float d32 = 4*( -2*f1_02_13*x2(5) +  2*f1_0312*x2(4) - p1*x2(7))*fr_0312 + 2*( 2*f1_02_13*x2(6) + 2*f1_0312*x2(7) + p1*x2(4))*pr;
     
-    float no = 4*fr_0312*fr_0312 + pr*pr;
+    // float no = 4*fr_0312*fr_0312 + pr*pr;
 
-    // calculate linearized jacobian matrix H = d ([ q1*z_w*inv(q1), q2*z_w*inv(q2), -atan( 2*(q0r*q3r+q1r*q2r)/(q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r) ) ]) / dx_k
-    H2 <<  -2*x2(2),  2*x2(3), -2*x2(0),  2*x2(1),       0,        0,         0,       0,
-            2*x2(1),  2*x2(0),  2*x2(3),  2*x2(2),       0,        0,         0,       0,
-            2*x2(0), -2*x2(1), -2*x2(2),  2*x2(3),       0,        0,         0,       0,
-                 0,       0,       0,       0,     -2*x2(6),  2*x2(7), -2*x2(4), 2*x2(5),
-                 0,       0,       0,       0,      2*x2(5),  2*x2(4),  2*x2(7), 2*x2(6),
-                 0,       0,       0,       0,      2*x2(4), -2*x2(5), -2*x2(6), 2*x2(7),
-             d01/no,  d11/no,  d21/no,  d31/no,       d02/no,   d12/no,   d22/no,  d32/no;
-                 //0,       0,       0,       0,           0,        0,         0,        0;
+    // // calculate linearized jacobian matrix H = d ([ q1*z_w*inv(q1), q2*z_w*inv(q2), -atan( 2*(q0r*q3r+q1r*q2r)/(q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r) ) ]) / dx_k
+    H2 <<  Eigen::MatrixXf::Identity(8,8),
+           Eigen::MatrixXf::Identity(8,8);
+    //        d01/no,  d11/no,  d21/no,  d31/no,  d02/no,  d12/no,  d22/no,  d32/no;
+            //      0,       0,       0,       0,       0,       0,       0,       0;
 
     // calculate the Kalman gain matrix K
-    K2 = P2 * H2.transpose() * (H2 * P2 * H2.transpose() + R).inverse();
+    K2 = H2.transpose();
+    // K2 << Eigen::MatrixXf::Identity(8,8), P2 * H2.block<1,8>(8,0).transpose() * (H2.block<1,8>(8,0) * P2 * H2.block<1,8>(8,0).transpose() + R.block<1,1>(6,6)).inverse();
 
     // update the covariance matrix with measurement update
     P2 = (I2 - K2 * H2) * P2;
 
-    // compensate for rotation around z-axis generated by aligning to gravity vector
-    // compute update resulting only from aligning to gravity vector
-    Eigen::MatrixXf gupdate(8,1);
-    Eigen::MatrixXf gdiff(6,1);
-    gdiff = z.block<6,1>(0,0) - h.block<6,1>(0,0);
-    gupdate = K2.block<8,6>(0,0) * gdiff;
-
-    // storing states in vector for rotation compensation
-    float q1[4] = {x2(0), x2(1), x2(2), x2(3)};
-    float q1up[4] = {gupdate(0)+x2(0), gupdate(1)+x2(1), gupdate(2)+x2(2), gupdate(3)+x2(3)};
-    float q2[4] = {x2(4), x2(5), x2(6), x2(7)};
-    float q2up[4] = {gupdate(4)+x2(4), gupdate(5)+x2(5), gupdate(6)+x2(6), gupdate(7)+x2(7)};  
-
-    // computing resulting rotation
-    float psi1 = atan2(2*q1[0]*q1[3] + 2*q1[1]*q1[2], 2*q1[0]*q1[0] + 2*q1[1]*q1[1] - 1);
-    float psi1up = atan2(2*q1up[0]*q1up[3] + 2*q1up[1]*q1up[2], 2*q1up[0]*q1up[0] + 2*q1up[1]*q1up[1] - 1);
-    float psiComp1 = psi1up - psi1;
-
-    float psi2 = atan2(2*q2[0]*q2[3] + 2*q2[1]*q2[2], 2*q2[0]*q2[0] + 2*q2[1]*q2[1] - 1);
-    float psi2up = atan2(2*q2up[0]*q2up[3] + 2*q2up[1]*q2up[2], 2*q2up[0]*q2up[0] + 2*q2up[1]*q2up[1] - 1);
-    float psiComp2 = psi2up - psi2;
-
-    // assuring that values stay within [-pi, +pi]
-    if (psiComp1 > M_PI) { psiComp1 -= 2*M_PI; }
-    if (psiComp1 < -M_PI) { psiComp1 += 2*M_PI; }
-    if (psiComp2 > M_PI) { psiComp2 -= 2*M_PI; }
-    if (psiComp2 < -M_PI) { psiComp2 += 2*M_PI; }
-
-    // compensating the states with the resulting rotation
-    float qrotz1[4] = {cos(0.5*-psiComp1),0,0,sin(0.5*-psiComp1)}; 
-    float q1Comp[4];
-    quatMult(q1, qrotz1, q1Comp);
-    x2(0) = q1Comp[0];
-    x2(1) = q1Comp[1];
-    x2(2) = q1Comp[2];
-    x2(3) = q1Comp[3];
-
-    float qrotz2[4] = {cos(0.5*-psiComp2),0,0,sin(0.5*-psiComp2)};   
-    float q2Comp[4];
-    quatMult(q2, qrotz2, q2Comp);
-    x2(4) = q2Comp[0];
-    x2(5) = q2Comp[1];
-    x2(6) = q2Comp[2];
-    x2(7) = q2Comp[3];
-
-    // update states with measurement update
-    Eigen::MatrixXf diff(7,1);
-    diff = z - h;
-    if (diff(6) > M_PI) { diff(6) -= 2*M_PI; }
-    if (diff(6) < -M_PI) { diff(6) += 2*M_PI; }
+    // update states with measurement update (and make sure that encoder estimate and measuement stay within [-pi, pi])
+    Eigen::MatrixXf diff(16,1);
+    diff = z2 - h2;
+    // if (diff(8) > M_PI) { diff(8) -= 2*M_PI; }
+    // if (diff(8) < -M_PI) { diff(8) += 2*M_PI; }
     x2 = x2 + K2 * diff;
 
     // Normalise quaternion of IMU 1 (foothold)

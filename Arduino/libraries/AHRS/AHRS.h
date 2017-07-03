@@ -34,9 +34,9 @@ class AHRS{
         Eigen::Matrix<float, 14, 14> A;
         Eigen::Matrix<float, 4, 1> u1;
         Eigen::Matrix<float, 4, 1> omega1;
+        Eigen::Matrix<float, 4, 1> bias1;
         Eigen::Matrix<float, 4, 1> u2;
         Eigen::Matrix<float, 4, 1> omega2;
-        Eigen::Matrix<float, 4, 1> bias1;
         Eigen::Matrix<float, 4, 1> bias2;
         Eigen::Matrix<float, 6, 6> Q;
         Eigen::Matrix<float, 14, 6> L;
@@ -53,9 +53,11 @@ class AHRS{
         Eigen::Matrix<float, 8, 8> P2;
         Eigen::Matrix<float, 8, 8> A2;
         Eigen::Matrix<float, 8, 6> L2;
-        Eigen::Matrix<float, 7, 8> H2;
-        Eigen::Matrix<float, 8, 7> K2;
+        Eigen::Matrix<float, 16, 8> H2;
+        Eigen::Matrix<float, 8, 16> K2;
         Eigen::Matrix<float, 8, 8> I2;
+        Eigen::Matrix<float, 16, 1> h2;
+        Eigen::Matrix<float, 16, 1> z2;
 
         float sampleTime;
         
