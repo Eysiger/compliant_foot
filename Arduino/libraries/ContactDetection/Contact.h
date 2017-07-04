@@ -36,6 +36,8 @@ class Contact{
     	float accThreshold_;
     	float accForceThreshold_;
        	float removeContactThreshold_;
+
+       	const float G = 9.807f;
 };
 
 #endif
