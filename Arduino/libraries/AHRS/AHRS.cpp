@@ -306,27 +306,6 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
     omega2 << 0, *gx2, *gy2, *gz2;
     u2 = 0.5 * Quat2 * (omega2 - bias2) * sampleTime;
 
-    // calculate linearized jacobian matrix A = d (x_k + 0.5*Quat(x_k)*(omega-bias)*delta_t)/ dx_k
-    float t = sampleTime * 0.5;
-    Eigen::VectorXf d(6);
-    d << bias1.block<3,1>(1,0) - omega1.block<3,1>(1,0), bias2.block<3,1>(1,0) - omega2.block<3,1>(1,0);
-
-    A2 <<      1,  t*d(0),  t*d(1),  t*d(2),       0,       0,       0,       0,
-         -t*d(0),       1, -t*d(2),  t*d(1),       0,       0,       0,       0,
-         -t*d(1),  t*d(2),       1, -t*d(0),       0,       0,       0,       0,
-         -t*d(2), -t*d(1),  t*d(0),       1,       0,       0,       0,       0,
-               0,       0,       0,       0,       1,  t*d(3),  t*d(4),  t*d(5),
-               0,       0,       0,       0, -t*d(3),       1, -t*d(5),  t*d(4),
-               0,       0,       0,       0, -t*d(4),  t*d(5),       1, -t*d(3),
-               0,       0,       0,       0, -t*d(5), -t*d(4),  t*d(3),       1;
-
-    // calculate the covariance of the gyroscope noise in the direction of the quaternions Q*R*transpose(Q), set the bias noise to 0
-    L2 <<         Quat1.block<4,3>(0,1), Eigen::MatrixXf::Zero(4,3),
-             Eigen::MatrixXf::Zero(4,3),      Quat2.block<4,3>(0,1);
-    
-    // update the covarinace matrix with prediction
-    P2 = A2 * P2 * A2.transpose() + 0.25 * L2 * Q * L2.transpose();
-
     // update states with prediction
     x2(0) = x2(0) + u1(0);
     x2(1) = x2(1) + u1(1);
@@ -374,22 +353,35 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
       quatToRotMat(q2, Rot2);
       g2 = Rot2.transpose()*acc2;
   
+      float qI[4] = {1,0,0,0};
       float qcorr1[4] = {sqrt((g1(2)+1)/2), g1(1)/sqrt(2*(g1(2)+1)), -g1(0)/sqrt(2*(g1(2)+1)), 0};
+
+      float f1 = sin((1-alphag_)*qcorr1[0])/sin(qcorr1[0]);
+      float f2 = sin(alphag_*qcorr1[0])/sin(qcorr1[0]);
+      for (int j=0; j<4; j++) {
+        qcorr1[j] = f1*qI[j] + f2*qcorr1[j];
+      }
+
       float qup1[4];
       quatMult(q1, qcorr1, qup1);
 
       float qcorr2[4] = {sqrt((g2(2)+1)/2), g2(1)/sqrt(2*(g2(2)+1)), -g2(0)/sqrt(2*(g2(2)+1)), 0};
+
+      f1 = sin((1-alphag_)*qcorr2[0])/sin(qcorr2[0]);
+      f2 = sin(alphag_*qcorr2[0])/sin(qcorr2[0]);
+      for (int j=0; j<4; j++) {
+        qcorr2[j] = f1*qI[j] + f2*qcorr2[j];
+      }
+
       float qup2[4];
       quatMult(q2, qcorr2, qup2);
 
-      Eigen::MatrixXf diff(8,1);
       for (int j=0; j<4; j++) {
-        diff(j) = qup1[j] - q1[j];
+        x2(j) = qup1[j];
       }
       for (int j=4; j<8; j++) {
-        diff(j) = qup2[j-4] - q2[j-4];
+        x2(j) = qup2[j-4];
       }
-      x2 += diff;
 
       // Normalise quaternion of IMU 1 (foothold)
       recipNorm = invSqrt(x2(0) * x2(0) + x2(1) * x2(1) + x2(2) * x2(2) + x2(3) * x2(3));
@@ -406,7 +398,7 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
       x2(7) *= recipNorm;
     }
     
-    if ( fabs(x2(4)*x2(4)+x2(7)*x2(7)-x2(5)*x2(5)-x2(6)*x2(6)) > 0.5 ) {
+    if ( (fabs(x2(4)*x2(4)+x2(7)*x2(7)-x2(5)*x2(5)-x2(6)*x2(6)) > 0.5) && (fabs(x2(0)*x2(0)+x2(3)*x2(3)-x2(1)*x2(1)-x2(2)*x2(2)) > 0.5) ) {
       float q1[4] = {x2(0), x2(1), x2(2), x2(3)};
       float q2[4] = {x2(4), x2(5), x2(6), x2(7)};
 
@@ -419,7 +411,14 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
       float deltapsi = *psi - epsi;
       // float halfdeltaqenc1[4] = {cos(-deltapsi/4), 0, 0, sin(-deltapsi/4)};
       // float halfdeltaqenc2[4] = {cos(deltapsi/4), 0, 0, sin(deltapsi/4)};
+      float qI[4] = {1,0,0,0};
       float deltaqenc2[4] = {cos(deltapsi/2), 0, 0, sin(deltapsi/2)};
+
+      float f1 = sin((1-alphaenc_)*deltaqenc2[0])/sin(deltaqenc2[0]);
+      float f2 = sin(alphaenc_*deltaqenc2[0])/sin(deltaqenc2[0]);
+      for (int j=0; j<4; j++) {
+        deltaqenc2[j] = f1*qI[j] + f2*deltaqenc2[j];
+      }
 
       // float qenc1[4];
       // float invq21[4];
@@ -432,15 +431,14 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
       // quatMult(halfdeltaqenc2, q2, qenc2);
       quatMult(deltaqenc2, q2, qenc2);
 
-      Eigen::MatrixXf diff(8,1);
-      for (int j=0; j<4; j++) {
-        // diff(j) = qenc1[j] - q1[j];
-        diff(j) = 0;
-      }
+      // Eigen::MatrixXf diff(8,1);
+      // for (int j=0; j<4; j++) {
+      //   diff(j) = qenc1[j] - q1[j];
+      // }
       for (int j=4; j<8; j++) {
-        diff(j) = qenc2[j-4] - q2[j-4];
+        x2(j) = qenc2[j-4];
       }
-      x2 += diff;
+      // x2 += diff;
 
       // Normalise quaternion of IMU 1 (foothold)
       recipNorm = invSqrt(x2(0) * x2(0) + x2(1) * x2(1) + x2(2) * x2(2) + x2(3) * x2(3));
