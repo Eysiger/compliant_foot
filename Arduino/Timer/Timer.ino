@@ -131,7 +131,7 @@ void sensorReadout() {
 //  Serial.print("\t");
 //  Serial.print(gy1[i],6);
 //  Serial.print("\t");
-//  Serial.print(gz1[i],6);
+//  Serial.println(gz1[i],6);
 //  Serial.print("\t");
 //  Serial.print(ax2[i],6);
 //  Serial.print("\t");
@@ -295,7 +295,7 @@ void sensorReadout() {
   n++;
   if (n == number3) {
     // output necessary for visualization with processing
-//    serialPrintFloatArr(quat2, 4);
+//    serialPrintFloatArr(qrel, 4);
 //    Serial.println(""); //line break
     n=0;
   }
@@ -319,7 +319,7 @@ void setup() {
   IMUFootsole.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   IMUShank.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   
-  uint16_t zeroPos = 10152;//
+  uint16_t zeroPos = 9936;//
   if( !ENCODER.setZeroPos(zeroPos) ) {
     Serial.println("Encoder could not be set to zero.");
   }
@@ -357,13 +357,19 @@ void loop() {
   torques[1] = Ty[(l-1+10)%10];
   torques[2] = Tz[(l-1+10)%10];
   interrupts();
+
+//  Serial.print(tax1,6);
+//  Serial.print("\t");
+//  Serial.print(tay1,6);
+//  Serial.print("\t");
+//  Serial.println(taz1,6);
   
   // update poses of shank and footsole with measured data from both IMUs and the angular encoder, returns pose of footsole and shank
   float q1[4];
   float q2[4];
-  AHRS.getQEKF(q1, q2, &tax1, &tay1, &taz1, &tgx1, &tgy1, &tgz1, &tax2, &tay2, &taz2, &tgx2, &tgy2, &tgz2, &tangle);
+  AHRS.getComp(q1, q2, &tax1, &tay1, &taz1, &tgx1, &tgy1, &tgz1, &tax2, &tay2, &taz2, &tgx2, &tgy2, &tgz2, &tangle);
   
-   sumq20+=q2[0];
+  sumq20+=q2[0];
   sumq21+=q2[1];
   sumq22+=q2[2];
   sumq23+=q2[3];
@@ -396,9 +402,9 @@ void loop() {
   sumfxo += forces[0];
   sumfyo += forces[1];
   sumfzo += forces[2];
-  sumtxo += torques[0]*100;
-  sumtyo += torques[1]*100;
-  sumtzo += torques[2]*100;
+  sumtxo += torques[0]*10;
+  sumtyo += torques[1]*10;
+  sumtzo += torques[2]*10;
 
   // uses the measured orientation to compensate forces resulting from the outer shell
   //Force.compensateShell(qrel, forces, torques);
@@ -411,9 +417,9 @@ void loop() {
   sumfx += worldForces[0];
   sumfy += worldForces[1];
   sumfz += worldForces[2];
-  sumtx += worldTorques[0]*100;
-  sumty += worldTorques[1]*100;
-  sumtz += worldTorques[2]*100;
+  sumtx += worldTorques[0]*10;
+  sumty += worldTorques[1]*10;
+  sumtz += worldTorques[2]*10;
   m++;
   if (m == number2) {
 //    Serial.print(sumfxo/number2,6);
@@ -426,7 +432,7 @@ void loop() {
 //    Serial.print("\t");
 //    Serial.print(sumtyo/number2,6);
 //    Serial.print("\t");
-//    Serial.print(sumtzo/number2,6);
+//    Serial.println(sumtzo/number2,6);
 //    Serial.print("\t");
 //    Serial.print(sumfx/number2,6);
 //    Serial.print("\t");
@@ -439,7 +445,7 @@ void loop() {
 //    Serial.print(sumty/number2,6);
 //    Serial.print("\t");
 //    Serial.print(sumtz/number2,6);
-//    Serial.println("");
+//    Serial.print("\t");
 //    Serial.print(sumq20/number2,6);
 //    Serial.print("\t");
 //    Serial.print(sumq21/number2,6);
@@ -447,6 +453,9 @@ void loop() {
 //    Serial.print(sumq22/number2,6);
 //    Serial.print("\t");
 //    Serial.println(sumq23/number2,6);
+//    if (contact) { Serial.print(10); }
+//    else { Serial.print(0); }
+//    Serial.println("");
     m=0;
     sumfx=0;
     sumfy=0;
