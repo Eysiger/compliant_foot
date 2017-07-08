@@ -474,6 +474,7 @@ void AHRS::getComp(float* q1, float* q2, float* ax1, float* ay1, float* az1, flo
   q2[3] = x2(7);
 }
 
+
 float invSqrt(float number) {
   volatile long i;
   volatile float x, y;
@@ -486,4 +487,10 @@ float invSqrt(float number) {
   y = * ( float * ) &i;
   y = y * ( f - ( x * y * y ) );
   return y;
+}
+
+void getRelativeQuaternion(float* q1, float* q2, float* qrel) {
+  float invq2[4];
+  invertQuat(q2, invq2);
+  quatMult(q1, invq2, qrel);
 }

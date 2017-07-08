@@ -59,7 +59,7 @@ class AHRS{
         Eigen::Matrix<float, 9, 1> h2;
         Eigen::Matrix<float, 9, 1> z2;
         float alphag_ = 0.1;
-        float alphaenc_ = 0.5;
+        float alphaenc_ = 0.1;
 
         float sampleTime;
         
@@ -69,5 +69,6 @@ class AHRS{
 };
 
 float invSqrt(float number);
+void getRelativeQuaternion(float* q1, float* q2, float* qrel);
 
 #endif
