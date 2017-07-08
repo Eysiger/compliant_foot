@@ -325,6 +325,8 @@ void setup() {
   }
 
   BOTA.setZero();
+  
+  //BOTA.getOffset();
   //BOTA.setOffset(0, -0.13, -1.36, 0.0003, 0.0126, -0.0029);
   
   ContactState.setDetectContactThreshold(-20);
@@ -332,6 +334,7 @@ void setup() {
   ContactState.setRemoveContactThreshold(-10);
 
   fourkHzTimer.begin(sensorReadout, 250);
+//  stime = micros();
 }
 
 void loop() {
@@ -358,11 +361,11 @@ void loop() {
   torques[2] = Tz[(l-1+10)%10];
   interrupts();
 
-//  Serial.print(tax1,6);
+//  Serial.print(tgx1,6);
 //  Serial.print("\t");
-//  Serial.print(tay1,6);
+//  Serial.print(tgy1,6);
 //  Serial.print("\t");
-//  Serial.println(taz1,6);
+//  Serial.println(tgz1,6);
   
   // update poses of shank and footsole with measured data from both IMUs and the angular encoder, returns pose of footsole and shank
   float q1[4];
@@ -374,13 +377,9 @@ void loop() {
   sumq22+=q2[2];
   sumq23+=q2[3];
 
-  // compute relative quaternion between q1 and q2
-  float invq2[4];
-  invertQuat(q2, invq2);
-
   // assure that variables cannot be written and published at the same time
   noInterrupts();
-  quatMult(q1, invq2, qrel);
+  getRelativeQuaternion(q1, q2, qrel);
   quat1[0] = q1[0];
   quat1[1] = q1[1];
   quat1[2] = q1[2];
@@ -432,7 +431,7 @@ void loop() {
 //    Serial.print("\t");
 //    Serial.print(sumtyo/number2,6);
 //    Serial.print("\t");
-//    Serial.println(sumtzo/number2,6);
+//    Serial.print(sumtzo/number2,6);
 //    Serial.print("\t");
 //    Serial.print(sumfx/number2,6);
 //    Serial.print("\t");
@@ -489,6 +488,9 @@ void loop() {
 //  Serial.println("");
 //  Serial.print("contactState: ");
 //  Serial.println(contact);
-  
+//  stime = micros() - stime;
+//  Serial.println(stime);
+//  stime = micros();
   interrupts();
+  delay(2);
 }
