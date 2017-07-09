@@ -46,7 +46,7 @@ int beginStatus1, beginStatus2, beginStatus3;
 int i = 0;
 int l = 0;
 
-const int number2 = 100;
+const int number2 = 20;
 int m = 0;
 float sumfx=0;
 float sumfy=0;
@@ -311,8 +311,8 @@ void setup() {
   pinMode (PinEnc, OUTPUT);
   digitalWrite (PinEnc, HIGH);
 
-  beginStatus1 = IMUFootsole.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
-  beginStatus2 = IMUShank.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
+  beginStatus1 = IMUFootsole.begin(ACCEL_RANGE_16G,GYRO_RANGE_2000DPS);
+  beginStatus2 = IMUShank.begin(ACCEL_RANGE_16G,GYRO_RANGE_2000DPS);
   beginStatus3 = ENCODER.begin();
   BOTA.begin();
 
@@ -361,11 +361,11 @@ void loop() {
   torques[2] = Tz[(l-1+10)%10];
   interrupts();
 
-//  Serial.print(tgx1,6);
+//  Serial.print(tgx2,6);
 //  Serial.print("\t");
-//  Serial.print(tgy1,6);
+//  Serial.print(tgy2,6);
 //  Serial.print("\t");
-//  Serial.println(tgz1,6);
+//  Serial.println(tgz2,6);
   
   // update poses of shank and footsole with measured data from both IMUs and the angular encoder, returns pose of footsole and shank
   float q1[4];
