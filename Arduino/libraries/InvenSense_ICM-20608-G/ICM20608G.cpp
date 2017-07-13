@@ -631,7 +631,7 @@ void ICM20608G::getTemp(float* t){
 
     getTempCounts(&tempCount);
 
-    *t = (( ((float) tempCount) - _tempOffset )/_tempScale) + _tempOffset;
+    *t = (( ((float) tempCount) - _tempOffset )/_tempScale) + 25;
 }
 
 /* get accelerometer and gyro data given pointers to store values, return data as counts */
