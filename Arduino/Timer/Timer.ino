@@ -25,7 +25,7 @@ AS5048A ENCODER(PinEnc);
 BOTA BOTA(PinTx, PinRx);
 
 // an AHRS object providing an EKF sensor fusion of two IMUs with an encoder in between (initial values of gyro offsets)
-AHRS AHRS(-0.0251, 0.0092, 0.0048, 0.0145, 0.0216, -0.0082);
+AHRS AHRS(-0.0215, -0.0021, 0.0035, 0.0145, 0.0216, -0.0082);
 
 // a Force object that provides functions to compensate for internal forces resulting from shell or acceleration
 Force Force;
@@ -41,7 +41,7 @@ float ax1[number], ay1[number], az1[number], gx1[number], gy1[number], gz1[numbe
 float ax2[number], ay2[number], az2[number], gx2[number], gy2[number], gz2[number], t2[number];
 float angle[number];
 float Fx[number], Fy[number], Fz[number], Tx[number], Ty[number], Tz[number];
-float tax1, tay1, taz1, tgx1, tgy1, tgz1, tax2, tay2, taz2, tgx2, tgy2, tgz2, tangle;
+float tax1, tay1, taz1, tgx1, tgy1, tgz1, tax2, tay2, taz2, tgx2, tgy2, tgz2, tangle,tt1;
 int beginStatus1, beginStatus2, beginStatus3;
 int i = 0;
 int l = 0;
@@ -87,6 +87,7 @@ void sensorReadout() {
   }
   else{
     IMUFootsole.getTemp(&t1[i]);                    // workaround to read out temperature first since first readout after AMS AS5048A does not work
+    IMUFootsole.getTemp(&t1[i]); 
     
     // get both the accel (m/s/s) and gyro (rad/s) data
     IMUFootsole.getMotion6(&ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]);
@@ -100,6 +101,7 @@ void sensorReadout() {
   else{
     // get both the accel (m/s/s) and gyro (rad/s) data
     IMUShank.getMotion6(&ax2[i], &ay2[i], &az2[i], &gx2[i], &gy2[i], &gz2[i]);
+    IMUShank.getTemp(&t2[i]);
   }
   if(beginStatus3 < 0) {
     delay(1000);
@@ -121,6 +123,9 @@ void sensorReadout() {
     angle[i] = angle[i]/180.0f*3.14159265359f;
   }
   // output raw values of sensors
+//  Serial.print(t1[i],6);
+//  Serial.print("\t");
+//  Serial.println(t2[i],6);
 //  Serial.print(ax1[i],6);
 //  Serial.print("\t");
 //  Serial.print(ay1[i],6);
@@ -175,7 +180,7 @@ void sensorReadout() {
 
   if(i == number) {
     //WRITE to USB
-    int length = 61;
+    int length = 63;
     byte buffer[length];
     buffer[0] = 0xFF;
     buffer[1] = 0xFF;
@@ -237,55 +242,61 @@ void sensorReadout() {
     buffer[29] = (uint8_t)(q3 >> 8);
     buffer[30] = (uint8_t)q3;
 
+    float tempToInt = 325.0;
+    
+    uint16_t temp = tt1*tempToInt + offset;
+    buffer[31] = (uint8_t)(temp >> 8);
+    buffer[32] = (uint8_t)temp;
+
     float AccToInt = 200.0;
     float GyroToInt = 7500.0;
 
     uint16_t accx = tax1*AccToInt + offset;
-    buffer[31] = (uint8_t)(accx >> 8);
-    buffer[32] = (uint8_t)accx;
+    buffer[33] = (uint8_t)(accx >> 8);
+    buffer[34] = (uint8_t)accx;
     uint16_t accy = tay1*AccToInt + offset;
-    buffer[33] = (uint8_t)(accy >> 8);
-    buffer[34] = (uint8_t)accy;
+    buffer[35] = (uint8_t)(accy >> 8);
+    buffer[36] = (uint8_t)accy;
     uint16_t accz = taz1*AccToInt + offset;
-    buffer[35] = (uint8_t)(accz >> 8);
-    buffer[36] = (uint8_t)accz;
+    buffer[37] = (uint8_t)(accz >> 8);
+    buffer[38] = (uint8_t)accz;
     uint16_t gyrox = tgx1*GyroToInt + offset;
-    buffer[37] = (uint8_t)(gyrox >> 8);
-    buffer[38] = (uint8_t)gyrox;
+    buffer[39] = (uint8_t)(gyrox >> 8);
+    buffer[40] = (uint8_t)gyrox;
     uint16_t gyroy = tgy1*GyroToInt + offset;
-    buffer[39] = (uint8_t)(gyroy >> 8);
-    buffer[40] = (uint8_t)gyroy;
+    buffer[41] = (uint8_t)(gyroy >> 8);
+    buffer[42] = (uint8_t)gyroy;
     uint16_t gyroz = tgz1*GyroToInt + offset;
-    buffer[41] = (uint8_t)(gyroz >> 8);
-    buffer[42] = (uint8_t)gyroz;
+    buffer[43] = (uint8_t)(gyroz >> 8);
+    buffer[44] = (uint8_t)gyroz;
 
     accx = tax2*AccToInt + offset;
-    buffer[43] = (uint8_t)(accx >> 8);
-    buffer[44] = (uint8_t)accx;
+    buffer[45] = (uint8_t)(accx >> 8);
+    buffer[46] = (uint8_t)accx;
     accy = tay2*AccToInt + offset;
-    buffer[45] = (uint8_t)(accy >> 8);
-    buffer[46] = (uint8_t)accy;
+    buffer[47] = (uint8_t)(accy >> 8);
+    buffer[48] = (uint8_t)accy;
     accz = taz2*AccToInt + offset;
-    buffer[47] = (uint8_t)(accz >> 8);
-    buffer[48] = (uint8_t)accz;
+    buffer[49] = (uint8_t)(accz >> 8);
+    buffer[50] = (uint8_t)accz;
     gyrox = tgx2*GyroToInt + offset;
-    buffer[49] = (uint8_t)(gyrox >> 8);
-    buffer[50] = (uint8_t)gyrox;
+    buffer[51] = (uint8_t)(gyrox >> 8);
+    buffer[52] = (uint8_t)gyrox;
     gyroy = tgy2*GyroToInt + offset;
-    buffer[51] = (uint8_t)(gyroy >> 8);
-    buffer[52] = (uint8_t)gyroy;
+    buffer[53] = (uint8_t)(gyroy >> 8);
+    buffer[54] = (uint8_t)gyroy;
     gyroz = tgz2*GyroToInt + offset;
-    buffer[53] = (uint8_t)(gyroz >> 8);
-    buffer[54] = (uint8_t)gyroz;
+    buffer[55] = (uint8_t)(gyroz >> 8);
+    buffer[56] = (uint8_t)gyroz;
     
     uint32_t now = micros();
-    buffer[55] = (uint8_t)(now >> 24);
-    buffer[56] = (uint8_t)(now >> 16);
-    buffer[57] = (uint8_t)(now >> 8);
-    buffer[58] = (uint8_t)now;
+    buffer[57] = (uint8_t)(now >> 24);
+    buffer[58] = (uint8_t)(now >> 16);
+    buffer[59] = (uint8_t)(now >> 8);
+    buffer[60] = (uint8_t)now;
     uint16_t check = checksum(buffer, 2, length-3);;
-    buffer[59] = (uint8_t)(check >> 8);
-    buffer[60] = (uint8_t)check;
+    buffer[61] = (uint8_t)(check >> 8);
+    buffer[62] = (uint8_t)check;
     
     Serial.write(buffer,length);
     Serial.send_now();
@@ -311,23 +322,34 @@ void setup() {
   pinMode (PinEnc, OUTPUT);
   digitalWrite (PinEnc, HIGH);
 
-  beginStatus1 = IMUFootsole.begin(ACCEL_RANGE_16G,GYRO_RANGE_2000DPS);
-  beginStatus2 = IMUShank.begin(ACCEL_RANGE_16G,GYRO_RANGE_2000DPS);
+  beginStatus1 = IMUFootsole.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
+  beginStatus2 = IMUShank.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
   beginStatus3 = ENCODER.begin();
   BOTA.begin();
 
   IMUFootsole.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   IMUShank.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   
-  uint16_t zeroPos = 9936;//
+  uint16_t zeroPos = 9953;//
   if( !ENCODER.setZeroPos(zeroPos) ) {
     Serial.println("Encoder could not be set to zero.");
   }
 
-  BOTA.setZero();
-  
-  //BOTA.getOffset();
-  //BOTA.setOffset(0, -0.13, -1.36, 0.0003, 0.0126, -0.0029);
+//  BOTA.setZero();
+//  float x, y, z, tx, ty, tz;
+//  BOTA.getOffset(&x, &y, &z, &tx, &ty, &tz);
+//  Serial.print(x,6);
+//  Serial.print("\t");
+//  Serial.print(y,6);
+//  Serial.print("\t");
+//  Serial.print(z,6);
+//  Serial.print("\t");
+//  Serial.print(tx,6);
+//  Serial.print("\t");
+//  Serial.print(ty,6);
+//  Serial.print("\t");
+//  Serial.println(tz,6);  
+  BOTA.setOffset(-0.8, -0.6, -2.8, -0.013, -0.001, 0.007);
   
   ContactState.setDetectContactThreshold(-20);
   ContactState.setAccAndForceThreshold(4*9.8, -15);
@@ -353,6 +375,7 @@ void loop() {
   tgy2 = mean(gy2);
   tgz2 = mean(gz2);
   tangle = median(angle);
+  tt1 = mean(t1);
   forces[0] = Fx[(l-1+10)%10];
   forces[1] = Fy[(l-1+10)%10];
   forces[2] = Fz[(l-1+10)%10];
@@ -361,11 +384,18 @@ void loop() {
   torques[2] = Tz[(l-1+10)%10];
   interrupts();
 
-//  Serial.print(tgx2,6);
+//  Serial.println(tt1,6);
+//  Serial.print(tax1,6);
 //  Serial.print("\t");
-//  Serial.print(tgy2,6);
+//  Serial.print(tay1,6);
 //  Serial.print("\t");
-//  Serial.println(tgz2,6);
+//  Serial.print(taz1,6);
+//  Serial.print("\t");
+//  Serial.print(tgx1,6);
+//  Serial.print("\t");
+//  Serial.print(tgy1,6);
+//  Serial.print("\t");
+//  Serial.println(tgz1,6);
   
   // update poses of shank and footsole with measured data from both IMUs and the angular encoder, returns pose of footsole and shank
   float q1[4];
@@ -390,20 +420,15 @@ void loop() {
   quat2[2] = q2[2];
   quat2[3] = q2[3];
    
-  // output necessary for visualization with processing
-//  serialPrintFloatArr(q2, 4);
-//  Serial.println(""); //line break
-//  delay(100);
-  
   // uses the measured acceleration and orientation to compensate forces resulting from accelerations
   Force.compensateAcceleration(qrel, tax1, tay1, taz1, forces, torques);
 
   sumfxo += forces[0];
   sumfyo += forces[1];
   sumfzo += forces[2];
-  sumtxo += torques[0]*10;
-  sumtyo += torques[1]*10;
-  sumtzo += torques[2]*10;
+  sumtxo += torques[0];
+  sumtyo += torques[1];
+  sumtzo += torques[2];
 
   // uses the measured orientation to compensate forces resulting from the outer shell
   //Force.compensateShell(qrel, forces, torques);
@@ -416,9 +441,9 @@ void loop() {
   sumfx += worldForces[0];
   sumfy += worldForces[1];
   sumfz += worldForces[2];
-  sumtx += worldTorques[0]*10;
-  sumty += worldTorques[1]*10;
-  sumtz += worldTorques[2]*10;
+  sumtx += worldTorques[0];
+  sumty += worldTorques[1];
+  sumtz += worldTorques[2];
   m++;
   if (m == number2) {
 //    Serial.print(sumfxo/number2,6);
@@ -431,7 +456,7 @@ void loop() {
 //    Serial.print("\t");
 //    Serial.print(sumtyo/number2,6);
 //    Serial.print("\t");
-//    Serial.print(sumtzo/number2,6);
+//    Serial.println(sumtzo/number2,6);
 //    Serial.print("\t");
 //    Serial.print(sumfx/number2,6);
 //    Serial.print("\t");
@@ -443,7 +468,7 @@ void loop() {
 //    Serial.print("\t");
 //    Serial.print(sumty/number2,6);
 //    Serial.print("\t");
-//    Serial.print(sumtz/number2,6);
+//    Serial.println(sumtz/number2,6);
 //    Serial.print("\t");
 //    Serial.print(sumq20/number2,6);
 //    Serial.print("\t");
