@@ -18,6 +18,9 @@ class Contact{
 
         void update(float* q2, float* ax1, float* ay1, float* az1, float* worldForces, bool* contact);
 
+        void updateNorm(float* forces, bool* contact);
+
+
         void setDetectContactThreshold(float detectContactThreshold) {
         	detectContactThreshold_ = detectContactThreshold;
         }
@@ -31,6 +34,7 @@ class Contact{
         
     private:
     	bool contact_;
+        bool normContact_;
 
     	float detectContactThreshold_;
     	float accThreshold_;

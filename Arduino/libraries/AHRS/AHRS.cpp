@@ -175,12 +175,12 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     // Measurement Update
     // check if external accelerations affect the acceleration measurements 
     if ( (fabs(a1-G) < 0.1*G) && (fabs(a2-G) < 0.1*G) ) { // if only small external accelerations occur, perform the measurement update with the measured accelerations
-      z << *ax1 / a1, *ay1 / a1, *az1 / a1, *ax2 / a2, *ay2 / a2, *az2 / a2, *psi;
+      z << *ax1 / a1, *ay1 / a1, *az1 / a1, *ax2 / a2, *ay2 / a2, *az2 / a2, -*psi;
     }
     else {  // avoid measurement update of acceleration by providing prediction of acceleration as measurement
       z << 2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
            2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
-           *psi;
+           -*psi;
     }
 
     // calculate the relative quaternion between IMU1 (footsole) and IMU2 (shank), q1*inv(q2) = qr
@@ -407,12 +407,12 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
       invertQuat(q2, invq2);
       quatMult(q1, invq2, q21);
 
-      float epsi = -atan2(2*(q21[0]*q21[3] + q21[1]*q21[2]), (q21[0]*q21[0] + q21[1]*q21[1] - q21[2]*q21[2] - q21[3]*q21[3]));
+      float epsi = atan2(2*(q21[0]*q21[3] + q21[1]*q21[2]), (q21[0]*q21[0] + q21[1]*q21[1] - q21[2]*q21[2] - q21[3]*q21[3]));
       float deltapsi = *psi - epsi;
       // float halfdeltaqenc1[4] = {cos(-deltapsi/4), 0, 0, sin(-deltapsi/4)};
       // float halfdeltaqenc2[4] = {cos(deltapsi/4), 0, 0, sin(deltapsi/4)};
       float qI[4] = {1,0,0,0};
-      float deltaqenc2[4] = {cos(deltapsi/2), 0, 0, sin(deltapsi/2)};
+      float deltaqenc2[4] = {cos(-deltapsi/2), 0, 0, sin(-deltapsi/2)};
 
       float f1 = sin((1-alphaenc_)*deltaqenc2[0])/sin(deltaqenc2[0]);
       float f2 = sin(alphaenc_*deltaqenc2[0])/sin(deltaqenc2[0]);

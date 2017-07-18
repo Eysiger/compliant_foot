@@ -7,7 +7,7 @@ rkaeslin@student.ethz.ch
 
 #include "Contact.h"
 
-Contact::Contact() : contact_(false), detectContactThreshold_(-20), accThreshold_(4*G), accForceThreshold_(-15), removeContactThreshold_(-10) {
+Contact::Contact() : contact_(false), normContact_(false), detectContactThreshold_(-20), accThreshold_(4*G), accForceThreshold_(-15), removeContactThreshold_(-10) {
 	
 }
 
@@ -41,4 +41,21 @@ void Contact::update(float* q2, float* ax1, float* ay1, float* az1, float* world
     }
 
     *contact = contact_;
+}
+
+void Contact::updateNorm(float* forces, bool* contact) {
+    float norm = sqrt(forces[0]*forces[0] + forces[1]*forces[1] + forces[2]*forces[2]);
+    
+    if (normContact_ == false) {
+        if (-norm < detectContactThreshold_) {
+            normContact_ = true;
+        }
+    }
+    else {
+        if (-norm > removeContactThreshold_) {
+            normContact_ = false;
+        }
+    }
+
+    *contact = normContact_;
 }

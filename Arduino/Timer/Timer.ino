@@ -41,7 +41,7 @@ float ax1[number], ay1[number], az1[number], gx1[number], gy1[number], gz1[numbe
 float ax2[number], ay2[number], az2[number], gx2[number], gy2[number], gz2[number], t2[number];
 float angle[number];
 float Fx[number], Fy[number], Fz[number], Tx[number], Ty[number], Tz[number];
-float tax1, tay1, taz1, tgx1, tgy1, tgz1, tax2, tay2, taz2, tgx2, tgy2, tgz2, tangle,tt1;
+float tax1, tay1, taz1, tgx1, tgy1, tgz1, tax2, tay2, taz2, tgx2, tgy2, tgz2, tangle, tt1, tt2;
 int beginStatus1, beginStatus2, beginStatus3;
 int i = 0;
 int l = 0;
@@ -70,6 +70,7 @@ int number3 = 400;
 
 float qrel[4];
 bool contact;
+bool normContact;
 float forces[3];
 float torques[3];
 float worldForces[3];
@@ -120,7 +121,7 @@ void sensorReadout() {
 //    Serial.println(counts);
 
     if (angle[i] > 180) { angle[i] -= 360; }
-    angle[i] = angle[i]/180.0f*3.14159265359f;
+    angle[i] = -angle[i]/180.0f*3.14159265359f;
   }
   // output raw values of sensors
 //  Serial.print(t1[i],6);
@@ -184,9 +185,11 @@ void sensorReadout() {
     byte buffer[length];
     buffer[0] = 0xFF;
     buffer[1] = 0xFF;
-    
-    if (contact) { buffer[2] = 0x03; }
+
+    if (normContact) { buffer[2] = 0x30; }
     else { buffer[2] = 0x00; }
+    if (contact) { buffer[2] = buffer[2] | 0x03; }
+    else { buffer[2] = buffer[2] | 0x00; }
 
     float offset = 32767;
 
@@ -195,22 +198,22 @@ void sensorReadout() {
     float NewtonMeterToIntXY = 3000.0;
     float NewtonMeterToIntZ = 2500.0;
 
-    uint16_t fx = worldForces[0]*NewtonToIntXY + offset;
+    uint16_t fx = forces[0]*NewtonToIntXY + offset;
     buffer[3] = (uint8_t)(fx >> 8);
     buffer[4] = (uint8_t)fx;
-    uint16_t fy = worldForces[1]*NewtonToIntXY + offset;
+    uint16_t fy = forces[1]*NewtonToIntXY + offset;
     buffer[5] = (uint8_t)(fy >> 8);
     buffer[6] = (uint8_t)fy;
-    uint16_t fz = worldForces[2]*NewtonToIntZ + offset;
+    uint16_t fz = forces[2]*NewtonToIntZ + offset;
     buffer[7] = (uint8_t)(fz >> 8);
     buffer[8] = (uint8_t)fz;
-    uint16_t tx = worldTorques[0]*NewtonMeterToIntXY + offset;
+    uint16_t tx = torques[0]*NewtonMeterToIntXY + offset;
     buffer[9] = (uint8_t)(tx >> 8);
     buffer[10] = (uint8_t)tx;
-    uint16_t ty = worldTorques[1]*NewtonMeterToIntXY + offset;
+    uint16_t ty = torques[1]*NewtonMeterToIntXY + offset;
     buffer[11] = (uint8_t)(ty >> 8);
     buffer[12] = (uint8_t)ty;
-    uint16_t tz = worldTorques[2]*NewtonMeterToIntZ + offset;
+    uint16_t tz = torques[2]*NewtonMeterToIntZ + offset;
     buffer[13] = (uint8_t)(tz >> 8);
     buffer[14] = (uint8_t)tz;
 
@@ -244,7 +247,7 @@ void sensorReadout() {
 
     float tempToInt = 325.0;
     
-    uint16_t temp = tt1*tempToInt + offset;
+    uint16_t temp = tt2*tempToInt + offset;
     buffer[31] = (uint8_t)(temp >> 8);
     buffer[32] = (uint8_t)temp;
 
@@ -330,7 +333,7 @@ void setup() {
   IMUFootsole.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   IMUShank.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
   
-  uint16_t zeroPos = 9953;//
+  uint16_t zeroPos = 9983;//
   if( !ENCODER.setZeroPos(zeroPos) ) {
     Serial.println("Encoder could not be set to zero.");
   }
@@ -349,7 +352,7 @@ void setup() {
 //  Serial.print(ty,6);
 //  Serial.print("\t");
 //  Serial.println(tz,6);  
-  BOTA.setOffset(-0.8, -0.6, -2.8, -0.013, -0.001, 0.007);
+  BOTA.setOffset(-1.5,-0.9,-4.45,-0.022,0.007,0.0001);
   
   ContactState.setDetectContactThreshold(-20);
   ContactState.setAccAndForceThreshold(4*9.8, -15);
@@ -376,6 +379,7 @@ void loop() {
   tgz2 = mean(gz2);
   tangle = median(angle);
   tt1 = mean(t1);
+  tt2 = mean(t2);
   forces[0] = Fx[(l-1+10)%10];
   forces[1] = Fy[(l-1+10)%10];
   forces[2] = Fz[(l-1+10)%10];
@@ -419,7 +423,7 @@ void loop() {
   quat2[1] = q2[1];
   quat2[2] = q2[2];
   quat2[3] = q2[3];
-   
+  
   // uses the measured acceleration and orientation to compensate forces resulting from accelerations
   Force.compensateAcceleration(qrel, tax1, tay1, taz1, forces, torques);
 
@@ -437,6 +441,7 @@ void loop() {
   
   // provides the contact state with the provided thresholds and rotates forces and torques in world coordinate frame
   ContactState.update(q2, ax1, ay1, az1, worldForces, &contact);
+  ContactState.updateNorm(forces, &normContact);
   
   sumfx += worldForces[0];
   sumfy += worldForces[1];
