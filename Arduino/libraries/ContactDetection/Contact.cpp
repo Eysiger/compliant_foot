@@ -11,21 +11,26 @@ Contact::Contact() : contact_(false), normContact_(false), detectContactThreshol
 	
 }
 
-void Contact::update(float* q2, float* ax1, float* ay1, float* az1, float* worldForces, bool* contact) {
+void Contact::updateZ(float* q2, float* ax1, float* ay1, float* az1, float* worldForces, bool* contact) {
     float invq2[4];
     invertQuat(q2, invq2);
 
+    // search for biggest acceleration along world z-axis within the last measurements
     float accZ = 0;
-
     for (int i = 0; i < sizeof(ax1); i++) {
         float acc[4] = { 0, ax1[i], ay1[i], az1[i] };
 
-        quatMult(invq2, acc, acc);
-        quatMult(acc, q2, acc);
+        // rotate the measured acceleration to world coordinate frame
+        quatMult(acc, invq2, acc);
+        quatMult(q2, acc, acc);
+
         if ( fabs(acc[3]-G) > accZ) {
             accZ = fabs(acc[3]-G);
         }
     }
+
+    // pressure is negative force for BOTA sensor!
+    // if the contact state was set false, check along world z-axis for detect contact threshold and combined acceleration & contact threshold
     if (contact_ == false) {
         if (worldForces[2] < detectContactThreshold_) {
             contact_ = true;
@@ -34,6 +39,7 @@ void Contact::update(float* q2, float* ax1, float* ay1, float* az1, float* world
             contact_ = true;
         }
     }
+    // if the contact state was already set true, check along world z-axis for remove contact threshold
     else {
         if (worldForces[2] > removeContactThreshold_) {
             contact_ = false;
@@ -44,13 +50,15 @@ void Contact::update(float* q2, float* ax1, float* ay1, float* az1, float* world
 }
 
 void Contact::updateNorm(float* forces, bool* contact) {
+    // calculate the norm of the forces
     float norm = sqrt(forces[0]*forces[0] + forces[1]*forces[1] + forces[2]*forces[2]);
-    
+    // if the contact state was set false, check norm for detect contact threshold
     if (normContact_ == false) {
         if (-norm < detectContactThreshold_) {
             normContact_ = true;
         }
     }
+    // if the contact state was already set true, check norm for remove contact threshold
     else {
         if (-norm > removeContactThreshold_) {
             normContact_ = false;
