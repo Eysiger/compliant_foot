@@ -10,51 +10,43 @@ adapted from
 
 #include "AHRS.h"
 
+// initalizes the states (x2 is state of complementar filter)
 AHRS::AHRS(float bx1, float by1, float bz1, float bx2, float by2, float bz2) {
-    x << 1, 0, 0, 0, bx1, by1, bz1, 1, 0, 0, 0, bx2, by2, bz2;
-    P << 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, gyroBias, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, gyroBias, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, gyroBias, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, gyroBias, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, gyroBias, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, gyroBias;
-    Q << gyroNoise, 0, 0, 0, 0, 0,
-         0, gyroNoise, 0, 0, 0, 0,
-         0, 0, gyroNoise, 0, 0, 0,
-         0, 0, 0, gyroNoise, 0, 0,
-         0, 0, 0, 0, gyroNoise, 0,
-         0, 0, 0, 0, 0, gyroNoise;
-    R << accelNoise, 0, 0, 0, 0, 0, 0,
-         0, accelNoise, 0, 0, 0, 0, 0,
-         0, 0, accelNoise, 0, 0, 0, 0,
-         0, 0, 0, accelNoise, 0, 0, 0,
-         0, 0, 0, 0, accelNoise, 0, 0,
-         0, 0, 0, 0, 0, accelNoise, 0,
-         0, 0, 0, 0, 0, 0, encoderNoise; 
-    I = Eigen::MatrixXf::Identity(14,14);
+  // initial states of Kalman filter
+  x << 1, 0, 0, 0, bx1, by1, bz1, 1, 0, 0, 0, bx2, by2, bz2;
+  P << 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, gyroBias, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, gyroBias, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, gyroBias, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0/3.0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, gyroBias, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, gyroBias, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, gyroBias;
+  Q << gyroNoise, 0, 0, 0, 0, 0,
+       0, gyroNoise, 0, 0, 0, 0,
+       0, 0, gyroNoise, 0, 0, 0,
+       0, 0, 0, gyroNoise, 0, 0,
+       0, 0, 0, 0, gyroNoise, 0,
+       0, 0, 0, 0, 0, gyroNoise;
+  R << accelNoise, 0, 0, 0, 0, 0, 0,
+       0, accelNoise, 0, 0, 0, 0, 0,
+       0, 0, accelNoise, 0, 0, 0, 0,
+       0, 0, 0, accelNoise, 0, 0, 0,
+       0, 0, 0, 0, accelNoise, 0, 0,
+       0, 0, 0, 0, 0, accelNoise, 0,
+       0, 0, 0, 0, 0, 0, encoderNoise; 
+  I = Eigen::MatrixXf::Identity(14,14);
 
-    x2 << 1, 0, 0, 0, 1, 0, 0, 0;
-    P2 << 1.0/3.0, 0, 0, 0, 0, 0, 0, 0,
-          0, 1.0/3.0, 0, 0, 0, 0, 0, 0,
-          0, 0, 1.0/3.0, 0, 0, 0, 0, 0, 
-          0, 0, 0, 1.0/3.0, 0, 0, 0, 0, 
-          0, 0, 0, 0, 1.0/3.0, 0, 0, 0,
-          0, 0, 0, 0, 0, 1.0/3.0, 0, 0,
-          0, 0, 0, 0, 0, 0, 1.0/3.0, 0,
-          0, 0, 0, 0, 0, 0, 0, 1.0/3.0;
-    I2 = Eigen::MatrixXf::Identity(8,8);
-    bias1 << 0, bx1, by1, bz1;
-    bias2 << 0, bx2, by2, bz2;
+  // initial state of complementary filter
+  x2 << 1, 0, 0, 0, 1, 0, 0, 0;
 
-    lastUpdate = micros();
+  lastUpdate = micros();
 }
 
 void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {
@@ -190,9 +182,16 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
     float q3r = -x(0)*x(10) + x(1)*x(9) - x(2)*x(8) + x(3)*x(7);
     
     // predict the measurements, for acceleration z direction rotated with quaternion z_q = inv(q)*z_w*q, for angle psi of qr
-    h <<  2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
-          2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
-          -atan2(2*(q0r*q3r+q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
+    if ( (fabs(x(7)*x(7)+x(10)*x(10)-x(8)*x(8)-x(9)*x(9)) > 0.5) && (fabs(x(0)*x(0)+x(3)*x(3)-x(1)*x(1)-x(2)*x(2)) > 0.5) ) {
+      h <<  2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
+            2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
+            -atan2(2*(q0r*q3r+q1r*q2r), (q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r));
+    }
+    else {
+      h <<  2*(x(1)*x(3) - x(0)*x(2)), 2*(x(2)*x(3) + x(0)*x(1)), x(0)*x(0) - x(1)*x(1) - x(2)*x(2) + x(3)*x(3),
+            2*(x(8)*x(10) - x(7)*x(9)), 2*(x(9)*x(10) + x(7)*x(8)), x(7)*x(7) - x(8)*x(8) - x(9)*x(9) + x(10)*x(10),
+            -*psi;
+    }
           
     // calculate products nexessary to compute the linearized jacobian matrix H
     float pr  =  q0r*q0r + q1r*q1r - q2r*q2r - q3r*q3r;
@@ -258,6 +257,7 @@ void AHRS::EKFupdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1,
   //}
 }
 
+// calls the extended Kalman filter (EKF) update 
 void AHRS::getQEKF(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {  
   now = micros();
   sampleTime = ((float)(now - lastUpdate)) / 1000000.0;
@@ -275,6 +275,7 @@ void AHRS::getQEKF(float* q1, float* q2, float* ax1, float* ay1, float* az1, flo
   q2[3] = x(10);
 }
 
+// complementary filter that couples two IMUs with an intermediate encoder
 void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {
   // calculate magnitude of measured accelerations
   float a1 = sqrt(*ax1 * *ax1 + *ay1 * *ay1 + *az1 * *az1);
@@ -333,16 +334,20 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
 
     // Measurement Update
     
+    // Acceleration
     // check if external accelerations affect the acceleration measurements 
     if ( (a1 != 0) && (fabs(a1-G) < 0.1*G) && (fabs(a2-G) < 0.1*G) ) { // if only small external accelerations occur, perform the measurement update with the measured accelerations
+      // store the previous state estimate as two quaternions
       float q1[4] = {x2(0), x2(1), x2(2), x2(3)};
       float q2[4] = {x2(4), x2(5), x2(6), x2(7)};
 
+      // calculate the normalized acceleration vectors
       Eigen::VectorXf acc1(3);
       acc1 <<  *ax1/a1, *ay1/a1, *az1/a1;
       Eigen::VectorXf acc2(3);
       acc2 <<  *ax2/a2, *ay2/a2, *az2/a2;
       
+      // rotate acceleration with orientation estimate
       Eigen::MatrixXf Rot1(3,3);
       Eigen::VectorXf g1(3);
       quatToRotMat(q1, Rot1);
@@ -352,7 +357,8 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
       Eigen::VectorXf g2(3);
       quatToRotMat(q2, Rot2);
       g2 = Rot2.transpose()*acc2;
-  
+
+      // spherically interpolates between unit quaternion and the correction to align with the gravity vector
       float qI[4] = {1,0,0,0};
       float qcorr1[4] = {sqrt((g1(2)+1)/2), g1(1)/sqrt(2*(g1(2)+1)), -g1(0)/sqrt(2*(g1(2)+1)), 0};
 
@@ -362,9 +368,6 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
         qcorr1[j] = f1*qI[j] + f2*qcorr1[j];
       }
 
-      float qup1[4];
-      quatMult(q1, qcorr1, qup1);
-
       float qcorr2[4] = {sqrt((g2(2)+1)/2), g2(1)/sqrt(2*(g2(2)+1)), -g2(0)/sqrt(2*(g2(2)+1)), 0};
 
       f1 = sin((1-alphag_)*qcorr2[0])/sin(qcorr2[0]);
@@ -373,14 +376,15 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
         qcorr2[j] = f1*qI[j] + f2*qcorr2[j];
       }
 
+      // apply the interpolated correction to the quaternions and store in state
+      float qup1[4];
+      quatMult(qcorr1, q1, qup1);
       float qup2[4];
-      quatMult(q2, qcorr2, qup2);
+      quatMult(qcorr2, q2, qup2);
 
       for (int j=0; j<4; j++) {
         x2(j) = qup1[j];
-      }
-      for (int j=4; j<8; j++) {
-        x2(j) = qup2[j-4];
+        x2(j+4) = qup2[j];
       }
 
       // Normalise quaternion of IMU 1 (foothold)
@@ -397,48 +401,56 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
       x2(6) *= recipNorm;
       x2(7) *= recipNorm;
     }
-    
+
+    // Encoder Coupling
+    // check if orientation estimate is not in the area of singularity (around horizontal position)
     if ( (fabs(x2(4)*x2(4)+x2(7)*x2(7)-x2(5)*x2(5)-x2(6)*x2(6)) > 0.5) && (fabs(x2(0)*x2(0)+x2(3)*x2(3)-x2(1)*x2(1)-x2(2)*x2(2)) > 0.5) ) {
+      // store the previous state estimate as two quaternions
       float q1[4] = {x2(0), x2(1), x2(2), x2(3)};
       float q2[4] = {x2(4), x2(5), x2(6), x2(7)};
 
+      // get the relative quaternion in between
       float q21[4];
-      float invq2[4];
-      invertQuat(q2, invq2);
-      quatMult(q1, invq2, q21);
+      getRelativeQuaternion(q2, q1, q21);
 
+      // calculate the yaw angle between the estimates and compare to the measured yaw
       float epsi = atan2(2*(q21[0]*q21[3] + q21[1]*q21[2]), (q21[0]*q21[0] + q21[1]*q21[1] - q21[2]*q21[2] - q21[3]*q21[3]));
       float deltapsi = *psi - epsi;
-      // float halfdeltaqenc1[4] = {cos(-deltapsi/4), 0, 0, sin(-deltapsi/4)};
-      // float halfdeltaqenc2[4] = {cos(deltapsi/4), 0, 0, sin(deltapsi/4)};
+      // compute correction rotations for both orientation estimates
+      float halfdeltaqenc1[4] = {cos(deltapsi/4), 0, 0, sin(deltapsi/4)};
+      float halfdeltaqenc2[4] = {cos(-deltapsi/4), 0, 0, sin(-deltapsi/4)};
+      
+      // spherically interpolates between unit quaternion and the correction
       float qI[4] = {1,0,0,0};
-      float deltaqenc2[4] = {cos(-deltapsi/2), 0, 0, sin(-deltapsi/2)};
 
-      float f1 = sin((1-alphaenc_)*deltaqenc2[0])/sin(deltaqenc2[0]);
-      float f2 = sin(alphaenc_*deltaqenc2[0])/sin(deltaqenc2[0]);
+      float f1 = sin((1-alphaenc_)*halfdeltaqenc1[0])/sin(halfdeltaqenc1[0]);
+      float f2 = sin(alphaenc_*halfdeltaqenc1[0])/sin(halfdeltaqenc1[0]);
       for (int j=0; j<4; j++) {
-        deltaqenc2[j] = f1*qI[j] + f2*deltaqenc2[j];
+        halfdeltaqenc1[j] = f1*qI[j] + f2*halfdeltaqenc1[j];
       }
 
-      // float qenc1[4];
-      // float invq21[4];
-      // invertQuat(q21, invq21);
-      // quatMult(halfdeltaqenc1, invq21, halfdeltaqenc1);
-      // quatMult(q21, halfdeltaqenc1, halfdeltaqenc1);
-      // quatMult(halfdeltaqenc1, q1, qenc1);
+      f1 = sin((1-alphaenc_)*halfdeltaqenc2[0])/sin(halfdeltaqenc2[0]);
+      f2 = sin(alphaenc_*halfdeltaqenc2[0])/sin(halfdeltaqenc2[0]);
+      for (int j=0; j<4; j++) {
+        halfdeltaqenc2[j] = f1*qI[j] + f2*halfdeltaqenc2[j];
+      }
 
+      // rotate the correction for q1 into coordinate fram 1 and apply to the estimate
+      float qenc1[4];
+      float invq21[4];
+      invertQuat(q21, invq21);
+      quatMult(invq21, halfdeltaqenc1, halfdeltaqenc1);
+      quatMult(halfdeltaqenc1, q21, halfdeltaqenc1);
+      quatMult(q1, halfdeltaqenc1, qenc1);
+
+      // apply correction for q2
       float qenc2[4];
-      // quatMult(halfdeltaqenc2, q2, qenc2);
-      quatMult(deltaqenc2, q2, qenc2);
+      quatMult(q2, halfdeltaqenc2, qenc2);
 
-      // Eigen::MatrixXf diff(8,1);
-      // for (int j=0; j<4; j++) {
-      //   diff(j) = qenc1[j] - q1[j];
-      // }
-      for (int j=4; j<8; j++) {
-        x2(j) = qenc2[j-4];
+      for (int j=0; j<4; j++) {
+        x2(j) = qenc1[j];
+        x2(j+4) = qenc2[j];
       }
-      // x2 += diff;
 
       // Normalise quaternion of IMU 1 (foothold)
       recipNorm = invSqrt(x2(0) * x2(0) + x2(1) * x2(1) + x2(2) * x2(2) + x2(3) * x2(3));
@@ -457,6 +469,7 @@ void AHRS::CompUpdate(float* ax1, float* ay1, float* az1, float* gx1, float* gy1
   //}
 }
 
+// calls the Complementary filter update
 void AHRS::getComp(float* q1, float* q2, float* ax1, float* ay1, float* az1, float* gx1, float* gy1, float* gz1, float* ax2, float* ay2, float* az2, float* gx2, float* gy2, float* gz2, float* psi) {  
   now = micros();
   sampleTime = ((float)(now - lastUpdate)) / 1000000.0;
@@ -474,7 +487,7 @@ void AHRS::getComp(float* q1, float* q2, float* ax1, float* ay1, float* az1, flo
   q2[3] = x2(7);
 }
 
-
+// very fast numerical approximation to the inverted sqrt computation
 float invSqrt(float number) {
   volatile long i;
   volatile float x, y;
@@ -489,8 +502,9 @@ float invSqrt(float number) {
   return y;
 }
 
-void getRelativeQuaternion(float* q1, float* q2, float* qrel) {
-  float invq2[4];
-  invertQuat(q2, invq2);
-  quatMult(q1, invq2, qrel);
+// computes the relative quaternion inbeteween the reference quaternion q ref and the object quaternion in reference frame
+void getRelativeQuaternion(float* qref, float* qobj, float* qrel) {
+  float invqref[4];
+  invertQuat(qref, invqref);
+  quatMult(invqref, qobj, qrel);
 }
