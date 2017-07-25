@@ -13,12 +13,13 @@ rkaeslin@student.ethz.ch
 #include <Eigen.h>
 #include <Eigen/LU>
 
+// multiplies the quqternion q with quaternion p
 void quatMult(float* q, float* p, float* r);
+// inverts the given quaternion
 void invertQuat(float* q, float* r);
 
 void quatToEul(float* q, float* angles);
 void eulToQuat(float* angles, float* q);
-void getYawPitchRoll(float* q, float* ypr);
 void getAngles(float* q, float* angles);
 
 void quatToRotMat(float* q, Eigen::MatrixXf& Rot);
