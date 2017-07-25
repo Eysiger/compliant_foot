@@ -58,9 +58,9 @@ uint16_t checksum(uint8_t array[], int first, int last) {
 }
 
 // creates a buffer of bytes from the provided data
-void createBuffer(bool* normContact, bool* zContact, float forces[], float torques[], float quat1[], float quat2[], float* t, 
-    float* fax1, float* fay1, float* faz1, float* fgx1, float* fgy1, float* fgz1, 
-    float* fax2, float* fay2, float* faz2, float* fgx2, float* fgy2, float* fgz2,
+void createBuffer(bool* normContact, bool* zContact, float forces[], float torques[],
+    float quat1[], float* fax1, float* fay1, float* faz1, float* fgx1, float* fgy1, float* fgz1, 
+    float quat2[], float* fax2, float* fay2, float* faz2, float* fgx2, float* fgy2, float* fgz2, float* t,
     byte* buffer) {
 
     buffer[0] = 0xFF;
@@ -112,65 +112,66 @@ void createBuffer(bool* normContact, bool* zContact, float forces[], float torqu
     buffer[21] = (uint8_t)(q3 >> 8);
     buffer[22] = (uint8_t)q3;
 
-    q0 = (quat2[0]+1) * quatToInt;
-    buffer[23] = (uint8_t)(q0 >> 8);
-    buffer[24] = (uint8_t)q0;
-    q1 = (quat2[1]+1) * quatToInt;
-    buffer[25] = (uint8_t)(q1 >> 8);
-    buffer[26] = (uint8_t)q1;
-    q2 = (quat2[2]+1) * quatToInt;
-    buffer[27] = (uint8_t)(q2 >> 8);
-    buffer[28] = (uint8_t)q2;
-    q3 = (quat2[3]+1) * quatToInt;
-    buffer[29] = (uint8_t)(q3 >> 8);
-    buffer[30] = (uint8_t)q3;
-
-    float tempToInt = 325.0;
-    
-    uint16_t temp = *t*tempToInt + offset;
-    buffer[31] = (uint8_t)(temp >> 8);
-    buffer[32] = (uint8_t)temp;
-
     float AccToInt = 200.0;
     float GyroToInt = 7500.0;
 
     uint16_t accx = *fax1*AccToInt + offset;
-    buffer[33] = (uint8_t)(accx >> 8);
-    buffer[34] = (uint8_t)accx;
+    buffer[23] = (uint8_t)(accx >> 8);
+    buffer[24] = (uint8_t)accx;
     uint16_t accy = *fay1*AccToInt + offset;
-    buffer[35] = (uint8_t)(accy >> 8);
-    buffer[36] = (uint8_t)accy;
+    buffer[25] = (uint8_t)(accy >> 8);
+    buffer[26] = (uint8_t)accy;
     uint16_t accz = *faz1*AccToInt + offset;
-    buffer[37] = (uint8_t)(accz >> 8);
-    buffer[38] = (uint8_t)accz;
+    buffer[27] = (uint8_t)(accz >> 8);
+    buffer[28] = (uint8_t)accz;
     uint16_t gyrox = *fgx1*GyroToInt + offset;
-    buffer[39] = (uint8_t)(gyrox >> 8);
-    buffer[40] = (uint8_t)gyrox;
+    buffer[29] = (uint8_t)(gyrox >> 8);
+    buffer[30] = (uint8_t)gyrox;
     uint16_t gyroy = *fgy1*GyroToInt + offset;
-    buffer[41] = (uint8_t)(gyroy >> 8);
-    buffer[42] = (uint8_t)gyroy;
+    buffer[31] = (uint8_t)(gyroy >> 8);
+    buffer[32] = (uint8_t)gyroy;
     uint16_t gyroz = *fgz1*GyroToInt + offset;
-    buffer[43] = (uint8_t)(gyroz >> 8);
-    buffer[44] = (uint8_t)gyroz;
+    buffer[33] = (uint8_t)(gyroz >> 8);
+    buffer[34] = (uint8_t)gyroz;
+    
+
+    q0 = (quat2[0]+1) * quatToInt;
+    buffer[35] = (uint8_t)(q0 >> 8);
+    buffer[36] = (uint8_t)q0;
+    q1 = (quat2[1]+1) * quatToInt;
+    buffer[37] = (uint8_t)(q1 >> 8);
+    buffer[38] = (uint8_t)q1;
+    q2 = (quat2[2]+1) * quatToInt;
+    buffer[39] = (uint8_t)(q2 >> 8);
+    buffer[40] = (uint8_t)q2;
+    q3 = (quat2[3]+1) * quatToInt;
+    buffer[41] = (uint8_t)(q3 >> 8);
+    buffer[42] = (uint8_t)q3;
 
     accx = *fax2*AccToInt + offset;
-    buffer[45] = (uint8_t)(accx >> 8);
-    buffer[46] = (uint8_t)accx;
+    buffer[43] = (uint8_t)(accx >> 8);
+    buffer[44] = (uint8_t)accx;
     accy = *fay2*AccToInt + offset;
-    buffer[47] = (uint8_t)(accy >> 8);
-    buffer[48] = (uint8_t)accy;
+    buffer[45] = (uint8_t)(accy >> 8);
+    buffer[46] = (uint8_t)accy;
     accz = *faz2*AccToInt + offset;
-    buffer[49] = (uint8_t)(accz >> 8);
-    buffer[50] = (uint8_t)accz;
+    buffer[47] = (uint8_t)(accz >> 8);
+    buffer[48] = (uint8_t)accz;
     gyrox = *fgx2*GyroToInt + offset;
-    buffer[51] = (uint8_t)(gyrox >> 8);
-    buffer[52] = (uint8_t)gyrox;
+    buffer[49] = (uint8_t)(gyrox >> 8);
+    buffer[50] = (uint8_t)gyrox;
     gyroy = *fgy2*GyroToInt + offset;
-    buffer[53] = (uint8_t)(gyroy >> 8);
-    buffer[54] = (uint8_t)gyroy;
+    buffer[51] = (uint8_t)(gyroy >> 8);
+    buffer[52] = (uint8_t)gyroy;
     gyroz = *fgz2*GyroToInt + offset;
-    buffer[55] = (uint8_t)(gyroz >> 8);
-    buffer[56] = (uint8_t)gyroz;
+    buffer[53] = (uint8_t)(gyroz >> 8);
+    buffer[54] = (uint8_t)gyroz;
+
+    float tempToInt = 325.0;
+    
+    uint16_t temp = *t*tempToInt + offset;
+    buffer[55] = (uint8_t)(temp >> 8);
+    buffer[56] = (uint8_t)temp;
     
     uint32_t now = micros();
     buffer[57] = (uint8_t)(now >> 24);

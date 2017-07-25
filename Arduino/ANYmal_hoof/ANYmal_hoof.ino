@@ -125,9 +125,9 @@ void sensorReadout() {
     //WRITE to USB
     int length = 63;
     byte buffer[length];
-    createBuffer(&normContact, &zContact, compForces, compTorques, qrel, quat1, &ft2, 
-                 &fax1, &fay1, &faz1, &fgx1, &fgy1, &fgz1, 
-                 &fax2, &fay2, &faz2, &fgx2, &fgy2, &fgz2,
+    createBuffer(&normContact, &zContact, compForces, compTorques,  
+                 quat1, &fax1, &fay1, &faz1, &fgx1, &fgy1, &fgz1, 
+                 quat2, &fax2, &fay2, &faz2, &fgx2, &fgy2, &fgz2, &ft2,
                  buffer);
     Serial.write(buffer,length);
     Serial.send_now();
