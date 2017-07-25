@@ -14,10 +14,13 @@ BOTA::BOTA(uint8_t TxPin, uint8_t RxPin): variable_(0), started_(false), sign_(1
 }
 
 void BOTA::begin(){
+  // open UART connection to BOTA sensor
 	UART.setTX(TxPin_);
 	UART.setRX(RxPin_);
 
 	UART.begin(230400);
+
+  // calibration matrix
 	A <<  -0.001473513720803*1.10,   0.024934656756038*1.15,  -0.020341823640977*1.15,  -0.020552003033123*1.15,   0.011483767341789*1.15,  0.014051224287734*1.15,
          0.022724842326727*1.26,  -0.010607849529059*1.26,  -0.014724750724608*1.26,  -0.001461044317035*1.26,   0.018206029868300*1.26,  -0.017519364420186*1.26,
          0.020362123488925*1.04,   0.022827582060519*1.02,   0.022940548564196*1.02,  -0.001960668445840*1.02,  -0.002258007026808*1.02,   0.002192924621157*1.02,
@@ -30,6 +33,8 @@ void BOTA::begin(){
     // 	 0, 0, 0, 1, 0, 0,
     // 	 0, 0, 0, 0, 1, 0,
     // 	 0, 0, 0, 0, 0, 1;
+
+  // set all offsets to zero
   offset[0] = 0;
   offset[1] = 0;
   offset[2] = 0;
@@ -38,9 +43,11 @@ void BOTA::begin(){
   offset[5] = 0;
 }
 
-bool BOTA::getForces(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, float* Tz) {
+bool BOTA::getForces(float* Force, float* Torque) {
+  //check if data is available
 	if (UART.available() > 0) {
 	    int reading;
+      // if the read-in hasn't started check if header (new line ASCII 10) is found otherwise return
 	    if (!started_) {
 	      	reading = UART.read();
 	      	if ( reading == 10 ) {
@@ -48,42 +55,46 @@ bool BOTA::getForces(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, floa
 	      	}
 	      	else { return  0;}
 	    }
-      	while ( (UART.available() > 0) && started_) {
-        	reading = UART.read();
-        	switch (reading) {
-          		case 45:
-            		sign_ = -1;
-            		break;
-          		case 32:
-            		data_[variable_] *= sign_;
-            		sign_ = 1;
-            		variable_++;
-            		break;
-          		case 13:
-                    ef[0] = data_[0];
-            		ef[1] = data_[1];
-            		ef[2] = data_[2];
-            		ef[3] = data_[3];
-            		ef[4] = data_[4];
-            		ef[5] = data_[5];
-            		F = A*ef;
+      // while data is available and the read-in is started, read in the sensor values
+    	while ( (UART.available() > 0) && started_) {
+      	reading = UART.read();
+      	switch (reading) {
+        		case 45:  // ASCII minus
+          		sign_ = -1;
+          		break;
+        		case 32:  // ASCII space (next variable)
+          		data_[variable_] *= sign_;
+          		sign_ = 1;
+          		variable_++;
+          		break;
+        		case 13:  // ASCII carriage return
+              // apply calibration matrix
+              ef[0] = data_[0];
+          		ef[1] = data_[1];
+          		ef[2] = data_[2];
+          		ef[3] = data_[3];
+          		ef[4] = data_[4];
+          		ef[5] = data_[5];
+          		F = A*ef;
 
-            		*Fx = F[0] - offset[0];
-            		*Fy = F[1] - offset[1];
-            		*Fz = F[2] - offset[2];
-            		*Tx = F[3] - offset[3];
-            		*Ty = F[4] - offset[4];
-            		*Tz = F[5] - offset[5];
+              // apply offsets and store as output
+          		Force[0] = F[0] - offset[0];
+          		Force[1] = F[1] - offset[1];
+          		Force[2] = F[2] - offset[2];
+          		Torque[0] = F[3] - offset[3];
+          		Torque[1] = F[4] - offset[4];
+          		Torque[2] = F[5] - offset[5];
 
-            		started_ = false;
-            		variable_ = 0;
-            		data_[0] = 0; data_[1] = 0; data_[2] = 0; data_[3] = 0; data_[4] = 0; data_[5] = 0;
-            		return 1;
-          		default:
-            		data_[variable_] *= 10;
-            		data_[variable_] += reading - 48;
-        	}
+              // reset for next data read-in
+          		started_ = false;
+          		variable_ = 0;
+          		data_[0] = 0; data_[1] = 0; data_[2] = 0; data_[3] = 0; data_[4] = 0; data_[5] = 0;
+          		return 1;
+        		default:  // ASCII numbers
+          		data_[variable_] *= 10;
+          		data_[variable_] += reading - 48;
       	}
+    	}
 	    return 0;
 	}
 	else { 
@@ -110,6 +121,7 @@ void BOTA::getOffset(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, floa
 }
 
 void BOTA::setZero() {
+  // average over provided number of measurements
 	int number = 1000;
 	float sumfx=0;
   float sumfy=0;
@@ -118,18 +130,20 @@ void BOTA::setZero() {
   float sumty=0;
   float sumtz=0;
 
+  // read-in the forces and torques and sum them up individually
 	for (int i = 0; i < number; i++) {
-		float fx, fy, fz, tx, ty, tz;
-		getForces(&fx, &fy, &fz, &tx, &ty, &tz);
-		sumfx += fx;
-	    sumfy += fy;
-	    sumfz += fz;
-	    sumtx += tx;
-	    sumty += ty;
-	    sumtz += tz;
-	    delay(6);		//adapt to speed of BOTA sensor
+		float f[3], t[3];
+		getForces(f, t);
+		sumfx += f[0];
+    sumfy += f[1];
+    sumfz += f[2];
+    sumtx += t[0];
+    sumty += t[1];
+    sumtz += t[2];
+    delay(6);		//adapt to speed of BOTA sensor
 	}
 
+  // calculate offset as the mean of the measured data
 	offset[0] += sumfx/((float)number);
 	offset[1] += sumfy/((float)number);
 	offset[2] += sumfz/((float)number);

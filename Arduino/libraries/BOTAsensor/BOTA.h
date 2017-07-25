@@ -19,13 +19,18 @@ class BOTA{
     public:
         BOTA(uint8_t TxPin, uint8_t RxPin);
 
+        // initializes the UART connection to the BOTA sensor
         void begin();
 
-        bool getForces(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, float* Tz);
+        // reads-in the force value that the BOTA sensor provides (data received in ASCII code)
+        bool getForces(float* Force, float* Torque);
 
+        // allows to set an offset on the force measurements
         void setOffset(float Fx, float Fy, float Fz, float Tx, float Ty, float Tz);
+        // returns the set offset values
         void getOffset(float* Fx, float* Fy, float* Fz, float* Tx, float* Ty, float* Tz);
 
+        // sets the mean of the currently measured forces and torques as offset
         void setZero();
     private:
     	Eigen::Matrix<float, 6, 6> A;
