@@ -76,7 +76,7 @@ void Force::rotateToWorldCoordiantes(float* q2, float* angle, float* forces, flo
   quatMult(tempTorques, invq2, tempTorques);
   quatMult(q2Comp, tempTorques, tempTorques);
 
-  // stroe the temporary values as output values
+  // store the temporary values as output values
   worldForces[0] = tempForces[1];
   worldForces[1] = tempForces[2];
   worldForces[2] = tempForces[3];
