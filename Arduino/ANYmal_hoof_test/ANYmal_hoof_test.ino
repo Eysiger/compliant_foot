@@ -305,6 +305,6 @@ void loop() {
   Serial.print("Encoder angle (degree): ");
   Serial.println(fangle*180.0f/3.14159265359f,6);
   
-  // assures that the loop does not run at a higher spped than 400 Hz
+  // assures that the loop does not run at a higher speed than 400 Hz
   delay(2);
 }
