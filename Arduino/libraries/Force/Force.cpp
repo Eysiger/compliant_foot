@@ -51,7 +51,7 @@ void Force::compensateShell(float* qrel, float* forces, float* torques, float* c
   // not yet implemented
 }
 
-void Force::rotateToWorldCoordiantes(float* q2, float* angle, float* forces, float* torques, float* worldForces, float* worldTorques) {
+void Force::rotateToZCoordiantes(float* q2, float* angle, float* forces, float* torques, float* worldForces, float* worldTorques) {
   // calculate the rotation introduced around yaw of world frame and remove it
   float psiComp = atan2(2*q2[0]*q2[3] + 2*q2[1]*q2[2], 2*q2[0]*q2[0] + 2*q2[1]*q2[1] - 1);
   float qrotz[4] = {cos(0.5 * -psiComp), 0, 0, sin(0.5 * -psiComp)};
@@ -60,7 +60,6 @@ void Force::rotateToWorldCoordiantes(float* q2, float* angle, float* forces, flo
   quatMult(qrotz, q2, q2Comp);
 
   // rotate the shank coordinate frame by the angle measured by the encoder to get force sensor frame
-  //*angle
   float qrotenc[4] = {cos(0.5 * *angle), 0, 0, sin(0.5 * *angle)};
 
   float invq2[4];
