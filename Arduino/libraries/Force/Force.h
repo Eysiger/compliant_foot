@@ -25,7 +25,7 @@ class Force{
         void compensateShell(float* qrel, float* forces, float* torques, float* compForces, float* compTorques);
 
         // rotates the measured forces to the world coordinate frame
-        void rotateToWorldCoordiantes(float* q2, float* angle, float* forces, float* torques, float* worldForces, float* worldTorques);
+        void rotateToZCoordiantes(float* q2, float* angle, float* forces, float* torques, float* worldForces, float* worldTorques);
         
     private:
         float massBeforePivot_;
