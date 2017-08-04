@@ -69,6 +69,7 @@ void sensorReadout() {
     // get both the accel (m/s^s) and gyro (rad/s) data
     IMUFootsole.getMotion6(&ax1[i], &ay1[i], &az1[i], &gx1[i], &gy1[i], &gz1[i]);
   }
+  
   if(beginStatusIMU2 < 0) {
     delay(1000);
     Serial.println("IMUShank initialization unsuccessful");
@@ -80,6 +81,19 @@ void sensorReadout() {
     IMUShank.getMotion6(&ax2[i], &ay2[i], &az2[i], &gx2[i], &gy2[i], &gz2[i]);
     IMUShank.getTemp(&t2[i]);
   }
+  // used to determine gyro bias
+//  Serial.print(gx1[i],6);
+//  Serial.print("\t");
+//  Serial.print(gy1[i],6);
+//  Serial.print("\t");
+//  Serial.print(gz1[i],6);
+//  Serial.print("\t");
+//  Serial.print(gx2[i],6);
+//  Serial.print("\t");
+//  Serial.print(gy2[i],6);
+//  Serial.print("\t");
+//  Serial.println(gz2[i],6);
+
   if(beginStatusEnc < 0) {
     delay(1000);
     Serial.println("ENCODER initialization unsuccessful");
@@ -156,8 +170,8 @@ void setup() {
   digitalWrite (PinEnc, HIGH);
 
   // initialize the sensors and set its settings
-  beginStatusIMU1 = IMUFootsole.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
-  beginStatusIMU2 = IMUShank.begin(ACCEL_RANGE_16G,GYRO_RANGE_250DPS);
+  beginStatusIMU1 = IMUFootsole.begin(ACCEL_RANGE_16G,GYRO_RANGE_2000DPS);
+  beginStatusIMU2 = IMUShank.begin(ACCEL_RANGE_16G,GYRO_RANGE_2000DPS);
   beginStatusEnc = ENCODER.begin();
   BOTA.begin();
 
@@ -165,7 +179,7 @@ void setup() {
   IMUShank.setFilt(GYRO_DLPF_BANDWIDTH_250HZ, ACCEL_BYPASS_DLPF_BANDWIDTH_1046HZ, 0);
 
   // define the zero position of the encoder
-  uint16_t zeroPos = 9983;//
+  uint16_t zeroPos = 10233;//
   if( !ENCODER.setZeroPos(zeroPos) ) {
     Serial.println("Encoder could not be set to zero.");
   }
@@ -209,8 +223,8 @@ void loop() {
   // update poses of shank and footsole with measured data from both IMUs and the angular encoder, returns pose of footsole and shank
   float q1[4];
   float q2[4];
-  // AHRS.getComp(q1, q2, &fax1, &fay1, &faz1, &fgx1, &fgy1, &fgz1, &fax2, &fay2, &faz2, &fgx2, &fgy2, &fgz2, &fangle);
-  AHRS.getQEKF(q1, q2, &fax1, &fay1, &faz1, &fgx1, &fgy1, &fgz1, &fax2, &fay2, &faz2, &fgx2, &fgy2, &fgz2, &fangle);
+  AHRS.getComp(q1, q2, &fax1, &fay1, &faz1, &fgx1, &fgy1, &fgz1, &fax2, &fay2, &faz2, &fgx2, &fgy2, &fgz2, &fangle);
+  // AHRS.getQEKF(q1, q2, &fax1, &fay1, &faz1, &fgx1, &fgy1, &fgz1, &fax2, &fay2, &faz2, &fgx2, &fgy2, &fgz2, &fangle);
   
   // assure that variables cannot be written and published at the same time
   noInterrupts();
@@ -235,14 +249,15 @@ void loop() {
   // uses the measured orientation to compensate forces resulting from the outer shell (not implemented)
   // Force.compensateShell(qrel, compForces, compTorques, compForces, compTorques);
 
-  Force.rotateToWorldCoordiantes(q2, &fangle, compForces, compTorques, worldForces, worldTorques);
+  // rotates forces and torques in world coordinate frame
+  Force.rotateToZCoordiantes(q2, &fangle, compForces, compTorques, worldForces, worldTorques);
   
-  // provides the contact state with the provided thresholds and rotates forces and torques in world coordinate frame
+  // provides the contact state with the provided thresholds and forces along the gravity vector or the norm of the forces 
   ContactState.updateZ(q2, ax1, ay1, az1, worldForces, &zContact);
   ContactState.updateNorm(compForces, &normContact);
   
   interrupts();
   
-  // assures that the loop does not run at a much higher spped than 400 Hz
+  // assures that the loop does not run at a higher spped than 400 Hz
   delay(2);
 }
