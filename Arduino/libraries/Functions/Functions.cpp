@@ -113,7 +113,7 @@ void createBuffer(bool* normContact, bool* zContact, float forces[], float torqu
     buffer[22] = (uint8_t)q3;
 
     float AccToInt = 200.0;
-    float GyroToInt = 7500.0;
+    float GyroToInt = 900.0;
 
     uint16_t accx = *fax1*AccToInt + offset;
     buffer[23] = (uint8_t)(accx >> 8);
@@ -133,7 +133,7 @@ void createBuffer(bool* normContact, bool* zContact, float forces[], float torqu
     uint16_t gyroz = *fgz1*GyroToInt + offset;
     buffer[33] = (uint8_t)(gyroz >> 8);
     buffer[34] = (uint8_t)gyroz;
-    
+
 
     q0 = (quat2[0]+1) * quatToInt;
     buffer[35] = (uint8_t)(q0 >> 8);
