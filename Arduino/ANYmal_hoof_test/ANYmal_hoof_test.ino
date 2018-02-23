@@ -78,8 +78,9 @@ void sensorReadout() {
   }
   else{
     // get both the accel (m/s^s) and gyro (rad/s) data
-    IMUShank.getMotion6(&ax2[i], &ay2[i], &az2[i], &gx2[i], &gy2[i], &gz2[i]);
+    // IMUShank.getTemp(&t2[i]);                       // workaround to read out temperature first since first readout after AMS AS5048A does not work
     IMUShank.getTemp(&t2[i]);
+    IMUShank.getMotion6(&ax2[i], &ay2[i], &az2[i], &gx2[i], &gy2[i], &gz2[i]);
   }
   // used to determine gyro bias
 //  Serial.print(gx1[i],6);
@@ -143,8 +144,8 @@ void sensorReadout() {
                  quat1, &fax1, &fay1, &faz1, &fgx1, &fgy1, &fgz1, 
                  quat2, &fax2, &fay2, &faz2, &fgx2, &fgy2, &fgz2, &ft2,
                  buffer);
-    Serial.write(buffer,length);
-    Serial.send_now();
+//    Serial.write(buffer,length);
+//    Serial.send_now();
 
     i = 0;
   }
@@ -279,7 +280,7 @@ void loop() {
   Serial.print("\t");
   Serial.print(faz2,6);
   Serial.print("\t");
-  Serial.print(gfx2,6);
+  Serial.print(fgx2,6);
   Serial.print("\t");
   Serial.print(fgy2,6);
   Serial.print("\t");
